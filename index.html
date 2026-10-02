@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Knight Rogue - Grimoire Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+<main id="title-screen" class="title-screen" data-view="welcome" aria-label="Inicio de Knight Rogue">
+  <div class="title-backdrop" aria-hidden="true">
+    <video class="title-video" autoplay loop muted playsinline poster="./Background.jpeg">
+      <source src="./background.mp4" type="video/mp4">
+    </video>
+    <div class="title-shade"></div>
+  </div>
+
+  <section id="welcome-panel" class="welcome-panel" aria-labelledby="welcome-title">
+    <img id="welcome-title" class="game-logo" src="./title.png" alt="RogueKnight">
+    <button id="difficulty-open" class="primary-action" type="button">
+      Seleccionar Dificultad
+    </button>
+    <button id="import-save-button" class="back-action" type="button">Importar partida</button>
+    <input id="save-file-input" type="file" accept=".sav,application/json" hidden>
+    <p id="import-save-status" class="save-feedback" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="difficulty-panel" class="difficulty-panel" aria-labelledby="difficulty-title" hidden>
+    <header class="difficulty-heading">
+      <div>
+        <p class="screen-kicker">Elige tu camino</p>
+        <h1 id="difficulty-title">Escoge tu dificultad</h1>
+      </div>
+      <button id="difficulty-back" class="back-action" type="button">Volver</button>
+    </header>
+
+    <div class="class-options" aria-label="Personajes disponibles">
+      <button id="select-solaris" class="class-option class-option--solaris" type="button">
+        <span class="class-number">01 · Disponible</span>
+        <img class="class-portrait" src="./sprites/knight.png" alt="">
+        <h2>Solaris</h2>
+        <p class="class-role">Caballero</p>
+        <p class="class-description">
+          Va de frente y aguanta el golpe. Su armadura y su vitalidad le dan margen para resistir mientras responde con acero.
+        </p>
+        <span class="class-stats">Alta defensa <span aria-hidden="true">·</span> Mucha vida</span>
+        <span class="class-cta">Jugar con Solaris <span aria-hidden="true">→</span></span>
+      </button>
+
+      <button id="select-jeanne" class="class-option class-option--jeanne" type="button">
+        <span class="class-number">02 · Disponible</span>
+        <img class="class-portrait" src="./sprites/witch.png" alt="">
+        <h2>Jeanne</h2>
+        <p class="class-role">Bruja</p>
+        <p class="class-description">
+          Domina la magia elemental y arcana. Recupera 3 puntos de maná al terminar cada turno.
+        </p>
+        <span class="class-stats">Magia <span aria-hidden="true">·</span> Regeneración de maná</span>
+        <span class="class-cta">Jugar con Jeanne <span aria-hidden="true">→</span></span>
+      </button>
+
+      <button id="select-vanitas" class="class-option class-option--vanitas" type="button">
+        <span class="class-number">03 · Disponible</span>
+        <img class="class-portrait" src="./sprites/bard.png" alt="">
+        <h2>Vanitas</h2>
+        <p class="class-role">Bardo</p>
+        <p class="class-description">
+          Pelea con la bachi de su shamisen y escribe magia en las páginas de su libro. Cada conjuro le acerca un poco más al frenesí.
+        </p>
+        <span class="class-stats">Alcance <span aria-hidden="true">·</span> Corrupción</span>
+        <span class="class-cta">Jugar con Vanitas <span aria-hidden="true">→</span></span>
+      </button>
+    </div>
+  </section>
+</main>
+
+<main id="c" aria-label="Knight Rogue" hidden>
+  <!-- Escena y estado del combate -->
+  <section class="scene" aria-label="Escena de combate">
+    <img id="bg" src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1000&q=80" alt="" aria-hidden="true">
+    <div id="bgc" aria-hidden="true"></div>
+    <div id="scanlines" aria-hidden="true"></div>
+    <div id="fx" aria-hidden="true"></div>
+    <div id="fk" aria-hidden="true"></div>
+
+    <header class="box" id="rb" aria-label="Progreso de la partida">
+      <span id="rn"></span>
+      <span id="zn"></span>
+      <button id="return-menu" type="button" aria-label="Volver al menú principal" disabled>Menu</button>
+    </header>
+    <output class="box" id="log" aria-live="polite" aria-atomic="true"></output>
+    <aside id="ie" aria-label="Estado del enemigo">
+      <div class="nv" id="enl"></div>
+      <div class="bar-status-row enemy-bar-row">
+        <div id="status-enemy" class="effect-indicators" aria-label="Estados del enemigo" aria-live="polite"></div>
+        <div class="bar" role="progressbar" aria-label="Vida del enemigo" aria-valuemin="0" aria-valuemax="100"><i id="ebar"></i></div>
+      </div>
+      <div class="box" id="enm"></div>
+    </aside>
+
+    <div id="pfe" aria-hidden="true"></div>
+    <div id="en" role="img" aria-label="Enemigo">
+      <img class="spr" id="eimg" alt="">
+      <span id="eemo" aria-hidden="true"></span>
+    </div>
+
+    <div id="ally" class="ally-companion" hidden aria-label="Aliado temporal">
+      <img id="allyimg" class="spr" alt="">
+      <div class="ally-caption">
+        <span id="ally-name"></span>
+        <span id="ally-turns"></span>
+      </div>
+      <div class="ally-health">
+        <div class="bar ally-health-bar" role="progressbar" aria-label="Vida del aliado" aria-valuemin="0" aria-valuemax="100">
+          <i id="ally-hpbar"></i>
+        </div>
+        <span id="ally-health-text"></span>
+      </div>
+    </div>
+
+    <div class="sh" aria-hidden="true"></div>
+    <div id="kw"><img class="spr" id="kimg" alt="Caballero con armadura" src="./sprites/knight.png"><i id="tg"></i><i id="rg"></i></div>
+
+    <!-- Recursos del jugador y barras de estado -->
+    <section id="ps" aria-label="Estado del personaje">
+      <div class="nv" id="pl"></div>
+      <div class="r sm"><span>MP</span><span id="mpt"></span></div>
+      <div class="bar mp" role="progressbar" aria-label="Maná" aria-valuemin="0" aria-valuemax="100"><i id="mpb"></i></div>
+      <div class="r sm"><span>HP</span><span id="php"></span></div>
+      <div class="bar-status-row player-bar-row">
+        <div class="bar" role="progressbar" aria-label="Vida del personaje" aria-valuemin="0" aria-valuemax="100"><i id="pbar"></i></div>
+        <div id="status-player" class="effect-indicators player-effects" aria-label="Estados del personaje" aria-live="polite"></div>
+      </div>
+      <div id="vanitas-meter" class="corruption-meter" hidden>
+        <div class="r sm"><span>Corrupción</span><span id="corruption-value">0%</span></div>
+        <div class="bar corruption-bar" role="progressbar" aria-label="Corrupción de Vanitas" aria-valuemin="0" aria-valuemax="100"><i id="corruption-fill"></i></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- Acciones disponibles y detalles del combate -->
+  <footer class="ui" aria-label="Controles de combate">
+    <nav id="grid" aria-label="Acciones disponibles"></nav>
+    <section id="info" aria-label="Detalles de la acción">
+      <output id="dsc" aria-live="polite"></output>
+      <div class="row">
+        <span id="damage-label">Daño</span>
+        <output id="dmg" aria-labelledby="damage-label">—</output>
+        <button id="bagb" type="button" aria-label="Abrir mochila">Mochila</button>
+      </div>
+    </section>
+  </footer>
+
+  <div id="inventory-modal" class="inventory-overlay" hidden>
+    <section class="inventory-panel inventory-panel--character" role="dialog" aria-modal="true" aria-labelledby="inventory-title">
+      <header class="inventory-header">
+        <div>
+          <p class="screen-kicker">Personaje y objetos</p>
+          <h2 id="inventory-title">Inventario</h2>
+        </div>
+        <button id="inventory-close" class="inventory-close" type="button" aria-label="Cerrar mochila">×</button>
+      </header>
+      <div class="inventory-layout">
+        <section class="inventory-left" aria-labelledby="inventory-items-title">
+          <h3 id="inventory-items-title" class="inventory-section-title">Inventario</h3>
+          <div id="inventory-items" class="inventory-items" aria-label="Objetos disponibles"></div>
+        </section>
+        <div class="inventory-right">
+          <section class="character-sheet" aria-label="Estadísticas del personaje">
+            <div id="inventory-portrait" class="inventory-portrait-slot" aria-hidden="true"></div>
+            <dl class="inventory-stat-list">
+              <div><dt>Personaje</dt><dd id="inventory-character"></dd></div>
+              <div><dt>HP</dt><dd id="inventory-hp"></dd></div>
+              <div><dt>MP</dt><dd id="inventory-mp"></dd></div>
+              <div><dt>Atq. físico</dt><dd id="inventory-physical-attack"></dd></div>
+              <div><dt>Atq. mágico</dt><dd id="inventory-magic-attack"></dd></div>
+              <div><dt>Defensa</dt><dd id="inventory-defense"></dd></div>
+              <div><dt>Prob. crit.</dt><dd id="inventory-crit"></dd></div>
+              <div><dt id="inventory-extra-label">Libro de Vanitas</dt><dd id="inventory-extra"></dd></div>
+            </dl>
+            <p id="inventory-path" class="inventory-path"></p>
+          </section>
+          <section class="grimoire-sheet" aria-labelledby="inventory-grimoire-title">
+            <h3 id="inventory-grimoire-title" class="inventory-section-title">Grimorio</h3>
+            <div id="inventory-equipped" class="inventory-equipped" aria-label="Habilidades equipadas"></div>
+            <h4 class="inventory-subtitle">Aprendidas</h4>
+            <div id="inventory-skills" class="inventory-skills" aria-label="Habilidades aprendidas"></div>
+            <p id="inventory-grimoire-status" class="grimoire-status" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="game-menu-modal" class="inventory-overlay" hidden>
+  <section class="inventory-panel game-menu-panel" role="dialog" aria-modal="true" aria-labelledby="game-menu-title">
+    <header class="inventory-header">
+      <div>
+        <p class="screen-kicker">Partida en curso</p>
+        <h2 id="game-menu-title">Menú de partida</h2>
+      </div>
+    </header>
+    <p class="game-menu-copy">¿Quieres volver al menú principal o guardar la partida?</p>
+    <div class="game-menu-actions">
+      <button id="save-game-button" class="primary-action" type="button">Guardar partida (.sav)</button>
+      <button id="return-to-title" class="inventory-secondary" type="button">Volver al menú principal</button>
+      <button id="resume-game" class="inventory-secondary" type="button">Continuar jugando</button>
+    </div>
+    <p id="save-feedback" class="save-feedback" role="status" aria-live="polite"></p>
+  </section>
+</div>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
