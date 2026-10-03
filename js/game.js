@@ -217,7 +217,6 @@ export const Game = (() => {
   let saveAvailable = false;
   let inventorySkillSlot = 0;
   let inventoryLoadoutChanged = false;
-  let keyboardActionIndex = 0;
   function getCharacterName() {
     return currentCharacter === 'vanitas' ? 'Vanitas'
       : currentCharacter === 'jeanne' ? 'Jeanne'
@@ -593,6 +592,10 @@ export const Game = (() => {
       if (savedStatus.success !== undefined) {
         if (typeof savedStatus.success !== 'boolean') throw new Error('El resultado de suerte guardado no es válido.');
         status.success = savedStatus.success;
+      }
+      if (savedStatus.deferFirstTick !== undefined) {
+        if (typeof savedStatus.deferFirstTick !== 'boolean') throw new Error('La duración guardada no es válida.');
+        status.deferFirstTick = savedStatus.deferFirstTick;
       }
       return status;
     });
@@ -1145,14 +1148,10 @@ export const Game = (() => {
   }
   function renderActionMenu(items, menuVariant = '') {
     const grid = getElementById('grid');
-    keyboardActionIndex = 0;
     grid.classList.toggle('grimoire-menu', menuVariant === 'grimoire');
-    grid.classList.toggle('combat-menu', menuVariant === 'combat');
-    saveAvailable = menuVariant === 'combat';
-    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover }, actionIndex) => {
+    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover }) => {
       const button = document.createElement('button');
       button.type = 'button';
-      if (menuVariant === 'combat') button.setAttribute('aria-keyshortcuts', String(actionIndex + 1));
       button.innerHTML = `${label}${subtitle ? `<small>${subtitle}</small>` : ''}`;
       button.disabled = Boolean(isDisabled);
       if (isBack) button.className = 'back';
@@ -1163,7 +1162,6 @@ export const Game = (() => {
   }
   const lockCombatControls = () => {
     saveAvailable = false;
-    getElementById('grid').classList.remove('combat-menu');
     getElementById('grid').replaceChildren();
     getElementById('bagb').disabled = true;
     getElementById('return-menu').disabled = true;
@@ -1354,8 +1352,12 @@ export const Game = (() => {
       }
 
       if (effect.turns !== undefined && effect.id !== 'frenzy') {
-        effect.turns--;
-        if (effect.turns <= 0) removeStatusEffect(statuses, effect.id);
+        if (effect.deferFirstTick) {
+          effect.deferFirstTick = false;
+        } else {
+          effect.turns--;
+          if (effect.turns <= 0) removeStatusEffect(statuses, effect.id);
+        }
       }
     }
   }
@@ -1395,7 +1397,7 @@ export const Game = (() => {
       };
     });
 
-    renderActionMenu(skillActions, 'combat');
+    renderActionMenu(skillActions);
     saveAvailable = true;
     getElementById('return-menu').disabled = false;
   }
@@ -1609,93 +1611,8 @@ export const Game = (() => {
   getElementById('inventory-modal').addEventListener('click', event => {
     if (event.target === event.currentTarget) closeInventoryModal();
   });
-
-  function isEditableKeyboardTarget(target) {
-    return target instanceof HTMLElement
-      && (target.isContentEditable || target.matches('input, textarea, select, [role="textbox"]'));
-  }
-
-  function focusAdjacentAction(key) {
-    const buttons = [...getElementById('grid').querySelectorAll('button:not(:disabled)')];
-    if (!buttons.length) return false;
-
-    const activeIndex = buttons.indexOf(document.activeElement);
-    const currentIndex = activeIndex === -1
-      ? Math.min(keyboardActionIndex, buttons.length - 1)
-      : activeIndex;
-    const currentBounds = buttons[currentIndex].getBoundingClientRect();
-    const currentX = currentBounds.left + currentBounds.width / 2;
-    const currentY = currentBounds.top + currentBounds.height / 2;
-    const directions = {
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-    };
-    const [directionX, directionY] = directions[key];
-    const candidates = buttons
-      .map((button, index) => {
-        if (index === currentIndex) return null;
-        const bounds = button.getBoundingClientRect();
-        const offsetX = bounds.left + bounds.width / 2 - currentX;
-        const offsetY = bounds.top + bounds.height / 2 - currentY;
-        const forward = offsetX * directionX + offsetY * directionY;
-        if (forward <= 0) return null;
-        const lateral = Math.abs(offsetX * directionY - offsetY * directionX);
-        return { button, index, score: forward + lateral * 1.5 };
-      })
-      .filter(Boolean)
-      .sort((first, second) => first.score - second.score);
-    const target = candidates[0];
-    if (!target) return false;
-
-    keyboardActionIndex = target.index;
-    target.button.focus({ preventScroll: true });
-    return true;
-  }
-
   document.addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey
-      || isEditableKeyboardTarget(event.target) || getElementById('c').hidden) return;
-
-    if (event.key === 'Escape') {
-      if (!getElementById('inventory-modal').hidden) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        closeInventoryModal();
-      } else if (saveAvailable && getElementById('game-menu-modal').hidden) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        getElementById('return-menu').click();
-      }
-      return;
-    }
-
-    if (!getElementById('inventory-modal').hidden || !getElementById('game-menu-modal').hidden) return;
-    if (parryHandler) return;
-
-    if (event.key.startsWith('Arrow')) {
-      if (focusAdjacentAction(event.key)) event.preventDefault();
-      return;
-    }
-
-    if (!saveAvailable) return;
-    if (/^[1-4]$/.test(event.key)) {
-      const skillButton = getElementById('grid').querySelectorAll('button')[Number(event.key) - 1];
-      if (skillButton && !skillButton.disabled) {
-        event.preventDefault();
-        skillButton.click();
-      }
-      return;
-    }
-
-    if (event.key.toLowerCase() === 'i' && !getElementById('bagb').disabled) {
-      event.preventDefault();
-      openInventoryModal();
-    } else if (event.key.toLowerCase() === 'm' && !getElementById('return-menu').disabled) {
-      event.preventDefault();
-      getElementById('return-menu').click();
-    }
+    if (event.key === 'Escape' && !getElementById('inventory-modal').hidden) closeInventoryModal();
   });
 
   function scrollSkillPool() {
@@ -1801,9 +1718,9 @@ export const Game = (() => {
       const existingBonus = findStatusEffect(playerStatuses, 'roulette-attack');
       if (existingBonus) removeStatusEffect(playerStatuses, 'roulette-attack');
       addStatusEffect(playerStatuses, {
-        id: 'roulette-attack', label: `Ataque +${bonus}`, bonus, turns: 2,
+        id: 'roulette-attack', label: `Ataque +${bonus}`, bonus, turns: 2, deferFirstTick: true,
       });
-      resultMessage += `aumenta el ataque físico de Varek en ${bonus} hasta su siguiente acción.`;
+      resultMessage += `aumenta el ataque físico de Varek en ${bonus} durante sus próximos 2 turnos.`;
     }
 
     renderInterface();
@@ -2233,22 +2150,18 @@ export const Game = (() => {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          const receivedMessage = damageResult.recipient === 'companion'
-            ? companionDamageMessage
-            : getIncomingDamageMessage(damageResult);
-          setCombatMessage(`Parry exitoso: ${receivedMessage} Devuelves ${reflectedDamage} de daño.`);
+          setCombatMessage(damageResult.recipient === 'companion'
+            ? `Parry exitoso: ${companionDamageMessage} Devuelves ${reflectedDamage} de daño.`
+            : 'Parry exitoso: recibes ' + Math.ceil(incomingDamage / 2) + ' y devuelves ' + reflectedDamage + ' de daño');
         } else {
           const damageResult = applyIncomingDamage(incomingDamage);
           if (damageResult.recipient === 'companion') {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          const receivedMessage = damageResult.recipient === 'companion'
-            ? companionDamageMessage
-            : getIncomingDamageMessage(damageResult);
-          setCombatMessage(damageResult.recipient === 'invulnerable'
-            ? receivedMessage
-            : `¡Golpe recibido! ${receivedMessage}`);
+          setCombatMessage(damageResult.recipient === 'companion'
+            ? `¡Golpe recibido! ${companionDamageMessage}`
+            : '¡Golpe recibido! ' + incomingDamage + ' de daño');
         }
 
         renderInterface();
@@ -2524,6 +2437,8 @@ export const Game = (() => {
           vanitasPathRank = 1;
         }
 
+          solarisPath = null;
+          jeannePath = null;
         bonuses.bookPower = vanitasPath === 'curse' ? vanitasPathRank * 10 : 0;
         resolve(title);
       };
@@ -2581,8 +2496,6 @@ export const Game = (() => {
     vanitasPathRank = 0;
     varekPath = null;
     varekPathRank = 0;
-    solarisPath = null;
-    jeannePath = null;
     playerStatuses = [];
     companion = null;
     activeTransformation = null;
