@@ -70,4 +70,4 @@ export function chooseWeightedItems(items, count, rollRandom = Math.random) {
   return chosen;
 }
 
-export const SCROLL_REWARD_WEIGHT = .08;
+export const SCROLL_REWARD_WEIGHT = 1;

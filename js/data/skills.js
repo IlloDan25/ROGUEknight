@@ -972,6 +972,24 @@ export const JEANNE_SKILLS = [
     p: 52, a: 96, c: 20, healAfterHit: .2, sprite: 'enchantment/corona',
     d: 'Una aurora sagrada y helada daña al rival y cura un 20% de la vida máxima.',
   },
+  {
+    id: 'jeanne-star-05', route: 'star', minLevel: 55,
+    t: 'mag', n: 'Railgun Estelar', dt: 'Arcano + Sagrado', damageTypes: ['Arcano', 'Sagrado'],
+    p: 68, a: 96, c: 26, directMultiplier: 2.4, cinematic: 'railgun', sprite: 'conjuration/orb_of_destruction',
+    d: 'Un láser rojo marca el blanco desde el borde de la Vía Láctea y un railgun galáctico cae sobre el enemigo.',
+  },
+  {
+    id: 'jeanne-star-06', route: 'star', minLevel: 70,
+    t: 'mag', n: 'Gungnir del Zenit', dt: 'Arcano + Fuego', damageTypes: ['Arcano', 'Fuego'],
+    p: 82, a: 97, c: 30, cinematic: 'gungnir', sprite: 'fire/fire_storm',
+    d: 'La aguja negra cae desde el zenit con una onda de choque que aplasta todo a su paso.',
+  },
+  {
+    id: 'jeanne-star-07', route: 'star', minLevel: 90,
+    t: 'mag', n: 'Siete Estrellas', dt: 'Arcano + Cósmico', damageTypes: ['Arcano', 'Cósmico'],
+    p: 96, a: 98, c: 34, cinematic: 'seven-stars', sprite: 'conjuration/orb_of_destruction',
+    d: 'La constelación del Gran Carro se proyecta sobre el campo y cada estrella llega a su nodo con una detonación final.',
+  },
 ].map(skill => ({ ...skill, evolves: skill.minLevel <= 16 }));
 
 export const JEANNE_EVOLUTION_LEVELS = [25, 40, 55, 70, 85, 95];

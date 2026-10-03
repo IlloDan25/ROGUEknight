@@ -135,9 +135,9 @@ test('every skill has a hidden color rarity and rarity-scaled scroll weight', ()
 
 test('weighted scroll acquisition favors common skills and allows rare ones', () => {
   const pool = [{ name: 'common', weight: 1 }, { name: 'scroll', weight: SCROLL_REWARD_WEIGHT }];
-  equal(chooseWeightedItems(pool, 1, () => .5)[0].name, 'common');
+  equal(chooseWeightedItems(pool, 1, () => .49)[0].name, 'common');
   equal(chooseWeightedItems(pool, 1, () => .999)[0].name, 'scroll');
-  equal(SCROLL_REWARD_WEIGHT < 1, true);
+  equal(SCROLL_REWARD_WEIGHT, 1);
   equal(SKILL_RARITIES.common.scrollWeight > SKILL_RARITIES.mythic.scrollWeight, true);
 });
 

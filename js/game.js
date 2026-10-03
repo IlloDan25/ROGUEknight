@@ -98,7 +98,105 @@ export const Game = (() => {
   };
   const EFFECT_TIER_COLORS = ['#dfe8f5', '#7fd0ff', '#ffd84a', '#ff7a3a'];
 
+  function createCinematicMarkup(skill) {
+    const type = skill.cinematic || 'railgun';
+    const milkyImage = './sprites/cinematics/milky_way_top.jpg';
+    const jupiterImage = './sprites/cinematics/jupiter.jpg';
+
+    if (type === 'railgun') {
+      return `
+        <svg class="cinematic-svg railgun-cinematic" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="railgun-galaxy" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#f2ebff"/>
+              <stop offset="50%" stop-color="#b6d0ff"/>
+              <stop offset="100%" stop-color="#1e213f"/>
+            </linearGradient>
+            <linearGradient id="railgun-laser" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stop-color="#ff6464" stop-opacity="0.15"/>
+              <stop offset="45%" stop-color="#ff8b70" stop-opacity="1"/>
+              <stop offset="100%" stop-color="#ffd9aa" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <image href="${milkyImage}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" opacity="0.82"/>
+          <ellipse cx="50" cy="54" rx="26" ry="18" fill="url(#railgun-galaxy)" opacity="0.65"/>
+          <ellipse cx="50" cy="18" rx="12" ry="12" fill="#f8e5b0" opacity="0.9"/>
+          <path d="M50 0 L50 100" stroke="#ff6b6b" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+          <path class="railgun-beam" d="M50 0 L50 100" stroke="url(#railgun-laser)" stroke-width="3" stroke-linecap="round" opacity="1"/>
+          <circle cx="50" cy="50" r="5" fill="#fff0b8" opacity="0.9"/>
+          <circle cx="50" cy="50" r="18" fill="none" stroke="#ffd5d5" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.8"/>
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#ff8d7a" stroke-width="0.8" stroke-dasharray="1 1.5" opacity="0.7"/>
+        </svg>
+      `;
+    }
+
+    if (type === 'gungnir') {
+      return `
+        <svg class="cinematic-svg gungnir-cinematic" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="gungnir-ember" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#fff7c6"/>
+              <stop offset="30%" stop-color="#ffb976"/>
+              <stop offset="100%" stop-color="#ff5b2e"/>
+            </linearGradient>
+          </defs>
+          <image href="${jupiterImage}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" opacity="0.68"/>
+          <circle cx="50" cy="20" r="10" fill="#f5cf7b" opacity="0.9"/>
+          <path d="M50 12 L50 82" stroke="#fbf3e2" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="M50 18 L50 84" stroke="url(#gungnir-ember)" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+          <path d="M50 76 Q42 66 42 50 Q42 34 50 28 Q58 34 58 50 Q58 66 50 76 Z" fill="none" stroke="#ffbb6a" stroke-width="1.2" opacity="0.8"/>
+          <circle cx="50" cy="50" r="18" fill="none" stroke="#ffdca7" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.9"/>
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#ff7d3d" stroke-width="0.8" stroke-dasharray="1 1.5" opacity="0.8"/>
+          <path d="M50 78 L50 100" stroke="#fff7d6" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+          <path d="M30 58 L70 58" stroke="#fff3d2" stroke-width="0.8" opacity="0.5"/>
+          <path d="M30 42 L70 42" stroke="#fff3d2" stroke-width="0.8" opacity="0.5"/>
+        </svg>
+      `;
+    }
+
+    if (type === 'seven-stars') {
+      return `
+        <svg class="cinematic-svg seven-stars-cinematic" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="seven-stars-glow" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#dfe5ff"/>
+              <stop offset="35%" stop-color="#bcbbff"/>
+              <stop offset="100%" stop-color="#ffdb99"/>
+            </linearGradient>
+          </defs>
+          <image href="${milkyImage}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" opacity="0.8"/>
+          <g stroke="url(#seven-stars-glow)" stroke-width="1" fill="none" opacity="0.9">
+            <path d="M30 34 L48 50 L58 32 L66 52 L78 40 L70 64 L48 74 L36 60 Z"/>
+            <path d="M30 34 L52 22 L62 36"/>
+            <path d="M58 32 L72 18 L78 40"/>
+            <path d="M70 64 L82 80"/>
+            <path d="M48 74 L56 90"/>
+          </g>
+          <g fill="#e8eafc" opacity="0.95">
+            <circle cx="30" cy="34" r="2.5"/>
+            <circle cx="48" cy="50" r="2.8"/>
+            <circle cx="58" cy="32" r="2.6"/>
+            <circle cx="66" cy="52" r="2.7"/>
+            <circle cx="78" cy="40" r="3"/>
+            <circle cx="70" cy="64" r="2.8"/>
+            <circle cx="48" cy="74" r="2.8"/>
+          </g>
+          <circle cx="50" cy="50" r="24" fill="none" stroke="#e8eafc" stroke-width="0.8" stroke-dasharray="1.8 2" opacity="0.8"/>
+        </svg>
+      `;
+    }
+
+    return `
+      <svg class="cinematic-svg railgun-cinematic" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <image href="${milkyImage}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" opacity="0.7"/>
+        <circle cx="50" cy="50" r="18" fill="#dce6ff" opacity="0.8"/>
+      </svg>
+    `;
+  }
+
   function createEffectMarkup(skill) {
+    if (skill.cinematic) return createCinematicMarkup(skill);
+
     const tier = skill.tier ?? Math.min(3, Math.floor(skill.p / 28));
     const color = EFFECT_TIER_COLORS[tier];
     const effectType = skill.line !== undefined
@@ -2281,6 +2379,11 @@ export const Game = (() => {
     lockCombatControls();
     getElementById('en').classList.add('faint');
     await typeMessage(`¡${enemy.n} fue derrotado!`);
+
+    if (enemy.b) {
+      bag.scrolls = (bag.scrolls || 0) + 1;
+      await typeMessage('¡El jefe te entrega un pergamino extra!');
+    }
 
     if (level >= 100) {
       best = 100;
