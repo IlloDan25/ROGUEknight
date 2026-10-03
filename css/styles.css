@@ -307,6 +307,14 @@ body {
 .mp i {
   background: #48a0f8
 }
+.witch-barrier-meter {
+  display: grid;
+  gap: .12rem;
+  margin-top: .22rem;
+}
+.witch-barrier-bar i {
+  background: #58d6c2;
+}
 .ui {
   flex: 0 0 30%;
   display: flex;
@@ -327,6 +335,7 @@ body {
   max-height: 100%
 }
 #info {
+  min-height: 0;
   flex: 1;
   background: var(--w);
   border: 0.18rem solid var(--ln);
@@ -337,6 +346,7 @@ body {
   gap: 0.48rem
 }
 #dsc {
+  min-height: 0;
   flex: 1;
   border: 0.15rem solid var(--hi);
   border-radius: 0.24rem;
@@ -344,7 +354,25 @@ body {
   line-height: 1.6;
   font-size: .8em;
   white-space: pre-line;
-  overflow-y: auto
+  overflow: hidden
+}
+.description-cascade-content {
+  display: block;
+}
+#dsc.description-cascade .description-cascade-content {
+  animation: description-cascade var(--cascade-duration) ease-in-out infinite alternate;
+}
+@keyframes description-cascade {
+  0%, 12% { transform: translateY(0); }
+  88%, 100% { transform: translateY(calc(0px - var(--cascade-distance))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #dsc.description-cascade {
+    overflow-y: auto;
+  }
+  #dsc.description-cascade .description-cascade-content {
+    animation: none;
+  }
 }
 .row {
   display: flex;
@@ -443,6 +471,16 @@ button small {
   object-fit: contain;
   image-rendering: pixelated;
   filter: drop-shadow(0 0 0.48rem rgba(255,255,255,.8))
+}
+#fx.meteor-impact .meteor-impact-sprite {
+  width: 220%;
+  height: 220%;
+  animation: meteor-fall .55s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes meteor-fall {
+  0% { opacity: 0; transform: translate(1.2em, -1.4em) rotate(35deg) scale(.35); }
+  62% { opacity: 1; transform: translate(0) rotate(0) scale(1); }
+  100% { opacity: 0; transform: translate(-.1em,.1em) scale(1.45); }
 }
 .fxon {
   animation: fxp .55s ease-out forwards

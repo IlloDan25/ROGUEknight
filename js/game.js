@@ -174,13 +174,16 @@ export const Game = (() => {
   function playCombatEffect(skill) {
     const { k: effectType, svg } = createEffectMarkup(skill);
     const effectElement = getElementById(effectType === 'sup' ? 'fk' : 'fx');
-    const frames = skill.book ? COMBAT_EFFECT_FRAMES.Arcano : COMBAT_EFFECT_FRAMES[skill.dt];
+    effectElement.classList.toggle('meteor-impact', Boolean(skill.meteor));
+    const frames = skill.meteor
+      ? COMBAT_EFFECT_FRAMES.Fuego
+      : skill.book ? COMBAT_EFFECT_FRAMES.Arcano : COMBAT_EFFECT_FRAMES[skill.dt];
 
     if (frames) {
       const frameRun = Number(effectElement.dataset.frameRun || 0) + 1;
       effectElement.dataset.frameRun = String(frameRun);
       const frameImage = document.createElement('img');
-      frameImage.className = 'combat-effect-sprite';
+      frameImage.className = `combat-effect-sprite${skill.meteor ? ' meteor-impact-sprite' : ''}`;
       frameImage.alt = '';
       effectElement.replaceChildren(frameImage);
 
@@ -214,6 +217,7 @@ export const Game = (() => {
   let saveAvailable = false;
   let inventorySkillSlot = 0;
   let inventoryLoadoutChanged = false;
+  let keyboardActionIndex = 0;
   function getCharacterName() {
     return currentCharacter === 'vanitas' ? 'Vanitas'
       : currentCharacter === 'jeanne' ? 'Jeanne'
@@ -260,6 +264,7 @@ export const Game = (() => {
     if (currentCharacter === 'vanitas') return VANITAS_SKILLS;
     if (currentCharacter === 'jeanne') return JEANNE_SKILLS;
     if (currentCharacter === 'varek') return VAREK_SKILLS.filter(skill => !skill.route || skill.route === varekPath);
+    if (currentCharacter === 'solaris') return SOLARIS_SKILLS.filter(skill => !skill.route || skill.route === solarisPath);
     return SOLARIS_SKILLS;
   }
   const createStarterSkills = () => {
@@ -415,6 +420,12 @@ export const Game = (() => {
       character: 'vanitas',
       apply: () => bag.bookInk++,
     },
+    {
+      name: 'Carta sangrienta',
+      description: 'Aumenta un 3% la probabilidad de crítico de Varek.',
+      character: 'varek',
+      apply: () => bag.bloodLetter++,
+    },
   ];
 
   const INVENTORY_ITEMS = [
@@ -443,6 +454,13 @@ export const Game = (() => {
       category: 'upgrade',
       character: 'vanitas',
     },
+    {
+      id: 'bloodLetter',
+      name: 'Carta sangrienta',
+      description: 'Aumenta un 3% la probabilidad de crítico de Varek.',
+      category: 'upgrade',
+      character: 'varek',
+    },
     { id: 'scrolls', name: 'Pergamino', description: 'Aprende una habilidad de tu personaje.', category: 'consumable' },
     { id: 'fen', name: 'Pluma de fénix', description: 'Te devuelve una vez al combate si caes.', category: 'passive' },
   ];
@@ -466,6 +484,8 @@ export const Game = (() => {
   let vanitasPathRank = 0;
   let varekPath = null;
   let varekPathRank = 0;
+  let solarisPath = null;
+  let jeannePath = null;
   let best = 0;
   let parryHandler = null;
   let animationFrame;
@@ -484,9 +504,9 @@ export const Game = (() => {
 
   const SAVE_DATA_FORMAT = 'rogueknight-save';
   const SAVE_DATA_VERSION = 3;
-  const SAVE_BAG_KEYS = ['pot', 'sup', 'eter', 'fen', 'scrolls', 'smoke', 'trap', 'bladeOil', 'bookInk'];
+  const SAVE_BAG_KEYS = ['pot', 'sup', 'eter', 'fen', 'scrolls', 'smoke', 'trap', 'bladeOil', 'bookInk', 'bloodLetter'];
   const SAVE_BONUS_KEYS = ['hp', 'attack', 'def', 'vamp', 'crit', 'mp', 'bookPower'];
-  const SAVE_PLAYER_STATUS_IDS = ['frenzy', 'smoke', 'barrier', 'crit-next', 'roulette-attack', 'gambler-luck'];
+  const SAVE_PLAYER_STATUS_IDS = ['frenzy', 'smoke', 'barrier', 'witch-barrier', 'invulnerable', 'crit-next', 'roulette-attack', 'gambler-luck'];
   const SAVE_ENEMY_STATUS_IDS = ['poison', 'bleed', 'stun', 'sleep'];
 
   function requireSaveRecord(value, label) {
@@ -562,7 +582,7 @@ export const Game = (() => {
       seenIds.add(savedStatus.id);
 
       const status = { id: savedStatus.id, label: savedStatus.label };
-      for (const key of ['turns', 'damage', 'shield', 'bonus']) {
+      for (const key of ['turns', 'damage', 'shield', 'maxShield', 'bonus']) {
         if (savedStatus[key] !== undefined) {
           status[key] = requireSaveNumber(savedStatus[key], 'Valor de estado', 0, 1_000_000_000_000);
         }
@@ -608,6 +628,8 @@ export const Game = (() => {
         vanitasPathRank,
         varekPath,
         varekPathRank,
+        solarisPath,
+        jeannePath,
         best,
         unlockedSkills,
         activeSkills,
@@ -646,7 +668,7 @@ export const Game = (() => {
     const savedBag = requireSaveRecord(savedState.bag, 'La mochila');
     const restoredBag = Object.fromEntries(SAVE_BAG_KEYS.map(key => [
       key,
-      requireSaveNumber(savedBag[key], 'Un objeto de la mochila', 0, 100000, true),
+      requireSaveNumber(savedBag[key] ?? (key === 'bloodLetter' ? 0 : undefined), 'Un objeto de la mochila', 0, 100000, true),
     ]));
 
     const savedEnemy = requireSaveRecord(savedState.enemy, 'El enemigo');
@@ -748,10 +770,28 @@ export const Game = (() => {
     if (characterId !== 'varek' && (restoredVarekPath || restoredVarekPathRank)) {
       throw new Error('El archivo contiene estados exclusivos de Varek en otro personaje.');
     }
+    const restoredSolarisPath = savedState.solarisPath ?? null;
+    if (restoredSolarisPath !== null && !['crusader', 'warden'].includes(restoredSolarisPath)) {
+      throw new Error('La ruta del Caballero no es válida.');
+    }
+    const restoredJeannePath = savedState.jeannePath ?? null;
+    if (restoredJeannePath !== null && !['tower', 'star'].includes(restoredJeannePath)) {
+      throw new Error('La ruta de la Bruja no es válida.');
+    }
+    if ((characterId !== 'solaris' && restoredSolarisPath)
+      || (characterId !== 'jeanne' && restoredJeannePath)) {
+      throw new Error('La partida contiene una ruta de otro personaje.');
+    }
     if ((restoredVarekPath === null) !== (restoredVarekPathRank === 0)
-      || restoredActiveSkills.some(skill => skill.route && skill.route !== restoredVarekPath)
-      || restoredUnlockedSkills.some(skill => skill.route && skill.route !== restoredVarekPath)) {
+      || (characterId === 'varek' && [...restoredActiveSkills, ...restoredUnlockedSkills]
+        .some(skill => skill.route && skill.route !== restoredVarekPath))) {
       throw new Error('Las habilidades guardadas no coinciden con la ruta de Varek.');
+    }
+    if ((characterId === 'solaris' && [...restoredActiveSkills, ...restoredUnlockedSkills]
+      .some(skill => skill.route && skill.route !== restoredSolarisPath))
+      || (characterId === 'jeanne' && [...restoredActiveSkills, ...restoredUnlockedSkills]
+        .some(skill => skill.route && skill.route !== restoredJeannePath))) {
+      throw new Error('Las habilidades guardadas no coinciden con la ruta del personaje.');
     }
 
     currentCharacter = characterId;
@@ -774,6 +814,8 @@ export const Game = (() => {
     vanitasPathRank = restoredVanitasPathRank;
     varekPath = restoredVarekPath;
     varekPathRank = restoredVarekPathRank;
+    solarisPath = restoredSolarisPath;
+    jeannePath = restoredJeannePath;
     best = Math.max(requireSaveNumber(savedState.best, 'Mejor ronda', 0, 100, true), best);
     unlockedSkills = restoredUnlockedSkills;
     activeSkills = restoredActiveSkills;
@@ -830,11 +872,13 @@ export const Game = (() => {
   function getPhysicalAttack() {
     const temporaryAttack = findStatusEffect(playerStatuses, 'roulette-attack')?.bonus || 0;
     const routeAttack = currentCharacter === 'varek' && varekPath === 'baskerville' ? varekPathRank * 2 : 0;
-    return Math.round(getCharacterBaseStats().physicalAttack + 0.7 * (level - 1) + bonuses.attack + temporaryAttack + routeAttack);
+    const attack = getCharacterBaseStats().physicalAttack + 0.7 * (level - 1) + bonuses.attack + temporaryAttack + routeAttack;
+    return Math.round(currentCharacter === 'solaris' && solarisPath === 'crusader' ? attack * 1.1 : attack);
   }
 
   function getMagicAttack() {
-    return Math.round(getCharacterBaseStats().magicAttack + 0.7 * (level - 1));
+    const attack = getCharacterBaseStats().magicAttack + 0.7 * (level - 1);
+    return Math.round(currentCharacter === 'jeanne' && jeannePath === 'tower' ? attack * 1.1 : attack);
   }
 
   function getSkillAttackPower(skill) {
@@ -847,7 +891,8 @@ export const Game = (() => {
   }
 
   function getDefense() {
-    return getCharacterBaseStats().defense + bonuses.def;
+    const defense = getCharacterBaseStats().defense + bonuses.def;
+    return Math.round(currentCharacter === 'solaris' && solarisPath === 'warden' ? defense * 1.1 : defense);
   }
 
   function getCriticalChancePercent() {
@@ -864,7 +909,21 @@ export const Game = (() => {
 
   function getStatusDamageMultiplier() {
     if (currentCharacter === 'vanitas') return 1.5;
+    if (currentCharacter === 'jeanne' && jeannePath === 'star') return 1.1;
     return currentCharacter === 'varek' && varekPath === 'baskerville' ? 1 + varekPathRank * .1 : 1;
+  }
+
+  function getSkillDamageTypes(skill) {
+    const damageTypes = skill.damageTypes || String(skill.dt).split(' + ');
+    if (currentCharacter === 'solaris' && solarisPath === 'crusader' && skill.t !== 'sup') {
+      return [...new Set([...damageTypes, 'Sagrado'])];
+    }
+    return damageTypes;
+  }
+
+  function getSkillAffinityMultiplier(skill) {
+    const damageTypes = getSkillDamageTypes(skill);
+    return damageTypes.reduce((total, type) => total + getAffinityMultiplier(enemy, type), 0) / damageTypes.length;
   }
 
   function getZoneIndex() {
@@ -882,7 +941,22 @@ export const Game = (() => {
   }
 
   function showActionDetails(description, damage) {
-    getElementById('dsc').textContent = description;
+    const descriptionOutput = getElementById('dsc');
+    const content = document.createElement('span');
+    content.className = 'description-cascade-content';
+    content.textContent = description;
+    descriptionOutput.replaceChildren(content);
+    descriptionOutput.classList.remove('description-cascade');
+    requestAnimationFrame(() => {
+      if (descriptionOutput.firstElementChild !== content) return;
+      const overflow = descriptionOutput.scrollHeight > descriptionOutput.clientHeight + 1;
+      descriptionOutput.classList.toggle('description-cascade', overflow);
+      if (overflow) {
+        const distance = descriptionOutput.scrollHeight - descriptionOutput.clientHeight;
+        content.style.setProperty('--cascade-distance', `${distance}px`);
+        content.style.setProperty('--cascade-duration', `${Math.max(6, distance / 12)}s`);
+      }
+    });
     getElementById('dmg').textContent = damage;
   }
 
@@ -1034,11 +1108,32 @@ export const Game = (() => {
     getElementById('pl').textContent = `${getCharacterName()} · Nv ${level}`;
     updateBar('pbar', hp / getMaxHealth(), 1);
     getElementById('php').textContent = `${Math.max(0, hp)}/${getMaxHealth()}`;
+    const witchBarrier = findStatusEffect(playerStatuses, 'witch-barrier');
+    const witchBarrierMeter = getElementById('witch-barrier-meter');
+    witchBarrierMeter.hidden = !witchBarrier;
+    if (witchBarrier) {
+      getElementById('witch-barrier-value').textContent = `${witchBarrier.shield}/${witchBarrier.maxShield} PV`;
+      updateBar('witch-barrier-fill', witchBarrier.shield / witchBarrier.maxShield);
+    }
     updateBar('mpb', mp / getMaxMana());
     getElementById('mpt').textContent = `${mp}/${getMaxMana()}`;
     renderCombatStatuses();
     renderCompanion();
   }
+  function createJeanneBarrier() {
+    if (currentCharacter !== 'jeanne' || level % 10 !== 0) return 0;
+
+    const shield = Math.round((getMaxHealth() + getDefense()) * 3);
+    removeStatusEffect(playerStatuses, 'witch-barrier');
+    addStatusEffect(playerStatuses, {
+      id: 'witch-barrier',
+      label: `Barrera mágica ${shield} PV`,
+      shield,
+      maxShield: shield,
+    });
+    return shield;
+  }
+
   async function typeMessage(message, milliseconds = 700) {
     const messageOutput = getElementById('log');
     messageOutput.textContent = '';
@@ -1050,10 +1145,14 @@ export const Game = (() => {
   }
   function renderActionMenu(items, menuVariant = '') {
     const grid = getElementById('grid');
+    keyboardActionIndex = 0;
     grid.classList.toggle('grimoire-menu', menuVariant === 'grimoire');
-    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover }) => {
+    grid.classList.toggle('combat-menu', menuVariant === 'combat');
+    saveAvailable = menuVariant === 'combat';
+    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover }, actionIndex) => {
       const button = document.createElement('button');
       button.type = 'button';
+      if (menuVariant === 'combat') button.setAttribute('aria-keyshortcuts', String(actionIndex + 1));
       button.innerHTML = `${label}${subtitle ? `<small>${subtitle}</small>` : ''}`;
       button.disabled = Boolean(isDisabled);
       if (isBack) button.className = 'back';
@@ -1064,6 +1163,7 @@ export const Game = (() => {
   }
   const lockCombatControls = () => {
     saveAvailable = false;
+    getElementById('grid').classList.remove('combat-menu');
     getElementById('grid').replaceChildren();
     getElementById('bagb').disabled = true;
     getElementById('return-menu').disabled = true;
@@ -1157,43 +1257,67 @@ export const Game = (() => {
     return true;
   }
 
-  function applyIncomingDamage(damage) {
-    if (!companion) {
-      const barrier = findStatusEffect(playerStatuses, 'barrier');
-      const reduction = barrier?.reduction || 0;
-      const reducedDamage = Math.round(damage * (1 - reduction / 100));
-      const absorbed = barrier ? Math.min(reducedDamage, barrier.shield) : 0;
-      const remainingDamage = reducedDamage - absorbed;
-
-      if (barrier) {
-        barrier.reduction = 0;
-        barrier.shield -= absorbed;
-        barrier.label = `Barrera ${barrier.shield} PV`;
-        if (barrier.shield <= 0) removeStatusEffect(playerStatuses, 'barrier');
-      }
-      if (remainingDamage > 0) hp -= remainingDamage;
-
-      return {
-        recipient: remainingDamage ? 'player' : 'barrier',
-        damage: remainingDamage,
-        absorbed,
-        barrierBroken: Boolean(barrier && barrier.shield <= 0),
-      };
+  function applyIncomingDamage(damage, routeToCompanion = true) {
+    if (findStatusEffect(playerStatuses, 'invulnerable')) {
+      return { recipient: 'invulnerable', damage: 0, absorbed: 0 };
+    }
+    if (routeToCompanion && companion) {
+      const companionName = companion.name;
+      companion.hp -= damage;
+      const defeated = companion.hp <= 0;
+      if (defeated) companion = null;
+      return { recipient: 'companion', companionName, damage, defeated };
     }
 
-    const companionName = companion.name;
-    companion.hp -= damage;
-    const defeated = companion.hp <= 0;
-    if (defeated) companion = null;
-    return { recipient: 'companion', companionName, damage, defeated };
+    let remainingDamage = damage;
+    let absorbed = 0;
+    let witchBarrierAbsorbed = 0;
+    const witchBarrier = findStatusEffect(playerStatuses, 'witch-barrier');
+    if (witchBarrier) {
+      witchBarrierAbsorbed = Math.min(remainingDamage, witchBarrier.shield);
+      witchBarrier.shield -= witchBarrierAbsorbed;
+      remainingDamage -= witchBarrierAbsorbed;
+      absorbed += witchBarrierAbsorbed;
+      witchBarrier.label = `Barrera mágica ${witchBarrier.shield} PV`;
+      if (witchBarrier.shield <= 0) removeStatusEffect(playerStatuses, 'witch-barrier');
+    }
+
+    const barrier = findStatusEffect(playerStatuses, 'barrier');
+    const reduction = barrier?.reduction || 0;
+    remainingDamage = Math.round(remainingDamage * (1 - reduction / 100));
+    const barrierAbsorbed = barrier ? Math.min(remainingDamage, barrier.shield) : 0;
+    remainingDamage -= barrierAbsorbed;
+    absorbed += barrierAbsorbed;
+
+    if (barrier) {
+      barrier.reduction = 0;
+      barrier.shield -= barrierAbsorbed;
+      barrier.label = `Barrera ${barrier.shield} PV`;
+      if (barrier.shield <= 0) removeStatusEffect(playerStatuses, 'barrier');
+    }
+    if (remainingDamage > 0) hp -= remainingDamage;
+
+    return {
+      recipient: remainingDamage ? 'player' : absorbed ? 'barrier' : 'player',
+      damage: remainingDamage,
+      absorbed: barrierAbsorbed,
+      totalAbsorbed: absorbed,
+      witchBarrierAbsorbed,
+      barrierBroken: Boolean(barrier && barrier.shield <= 0),
+      witchBarrierBroken: Boolean(witchBarrier && witchBarrier.shield <= 0),
+    };
   }
 
   function getIncomingDamageMessage(result) {
+    if (result.recipient === 'invulnerable') return `${getCharacterName()} no recibe daño gracias al Bastión del Señor.`;
+    const witchBarrierMessage = result.witchBarrierAbsorbed
+      ? `La barrera mágica absorbe ${result.witchBarrierAbsorbed} de daño${result.witchBarrierBroken ? ' y se rompe' : ''}. `
+      : '';
     const barrierMessage = result.absorbed
       ? `La barrera absorbe ${result.absorbed} de daño${result.barrierBroken ? ' y se rompe' : ''}. `
       : '';
-    if (result.recipient === 'barrier') return `${barrierMessage}${getCharacterName()} no recibe daño.`;
-    if (result.recipient === 'player') return `${barrierMessage}${getCharacterName()} recibe ${result.damage} de daño.`;
+    if (result.recipient === 'barrier') return `${witchBarrierMessage}${barrierMessage}${getCharacterName()} no recibe daño.`;
+    if (result.recipient === 'player') return `${witchBarrierMessage}${barrierMessage}${getCharacterName()} recibe ${result.damage} de daño.`;
     return result.defeated
       ? `${result.companionName} recibe ${result.damage} de daño y cae. La reescritura termina.`
       : `${result.companionName} recibe ${result.damage} de daño.`;
@@ -1213,9 +1337,13 @@ export const Game = (() => {
   async function tickDamageStatuses(statuses, targetLabel, applyDamage) {
     for (const effect of [...statuses]) {
       if (effect.damage && effect.turns > 0) {
-        const damageDealt = applyDamage(effect.damage, effect);
+        const damageResult = applyDamage(effect.damage, effect);
+        const damageDealt = typeof damageResult === 'number' ? damageResult : damageResult.damage;
         renderInterface();
-        await typeMessage(`${targetLabel} sufre ${effect.damage} de ${effect.label.toLowerCase()}.`);
+        const damageMessage = typeof damageResult === 'number'
+          ? `${targetLabel} sufre ${effect.damage} de ${effect.label.toLowerCase()}.`
+          : `${targetLabel} sufre ${effect.label.toLowerCase()}. ${getIncomingDamageMessage(damageResult)}`;
+        await typeMessage(damageMessage);
         if (currentCharacter === 'varek' && targetLabel === enemy.n && effect.id === 'bleed' && damageDealt > 0) {
           const restoredHealth = Math.min(damageDealt, getMaxHealth() - hp);
           hp += restoredHealth;
@@ -1242,7 +1370,7 @@ export const Game = (() => {
       const rewriteBlocked = skill.rewrite && (companion || enemy.b);
       const isSupportSkill = Boolean(
         skill.baraja || skill.barrier || skill.heal || skill.critNext || skill.luckNext
-        || skill.allManaCost || skill.fullHeal || skill.healPercent || skill.cleanse || skill.sleep,
+        || skill.allManaCost || skill.fullHeal || skill.healPercent || skill.cleanse || skill.sleep || skill.invulnerable,
       );
       return {
         t: `<span class="ic">${createSkillIconMarkup(skill)}</span>${skill.n}`,
@@ -1254,19 +1382,20 @@ export const Game = (() => {
             showActionDetails(skill.d, '—');
             return;
           }
-          const multiplier = getAffinityMultiplier(enemy, skill.dt);
+          const multiplier = getSkillAffinityMultiplier(skill);
           const skillAttackPower = getSkillAttackPower(skill);
           const baseDamage = skill.directMultiplier ? skill.directMultiplier * getPhysicalAttack() : skill.p * skillAttackPower / 10;
           const progressionMultiplier = getSkillProgressionMultiplier(skill);
           const minimumDamage = Math.max(1, Math.round(baseDamage * progressionMultiplier * .85 * multiplier));
           const maximumDamage = Math.max(1, Math.round(baseDamage * progressionMultiplier * 1.15 * multiplier));
-          const description = `${skill.d}\nTipo: ${skill.dt} · ${getAffinityLabel(multiplier)} (x${multiplier.toFixed(2)})`;
+          const damageTypes = getSkillDamageTypes(skill).join(' + ');
+          const description = `${skill.d}\nTipo: ${damageTypes} · ${getAffinityLabel(multiplier)} (x${multiplier.toFixed(2)})`;
           showActionDetails(description, `${minimumDamage}–${maximumDamage}`);
         },
       };
     });
 
-    renderActionMenu(skillActions);
+    renderActionMenu(skillActions, 'combat');
     saveAvailable = true;
     getElementById('return-menu').disabled = false;
   }
@@ -1301,7 +1430,15 @@ export const Game = (() => {
             ? varekPath === 'ludopata' ? `Ruta del Ludópata · rango ${varekPathRank}`
               : varekPath === 'baskerville' ? `Ruta del Baskerville · rango ${varekPathRank}`
                 : 'Elige una ruta en la ronda 11'
-            : 'Sin ruta elegida';
+                : currentCharacter === 'solaris'
+                  ? solarisPath === 'crusader' ? 'Ruta del Cruzado'
+                    : solarisPath === 'warden' ? 'Ruta del Custodio'
+                      : 'Elige una ruta en la ronda 11'
+                  : currentCharacter === 'jeanne'
+                    ? jeannePath === 'tower' ? 'Ruta de la Torre'
+                      : jeannePath === 'star' ? 'Ruta de la Estrella'
+                        : 'Elige una ruta en la ronda 11'
+                    : 'Sin ruta elegida';
 
     const portrait = document.createElement('img');
     portrait.className = 'inventory-portrait-image';
@@ -1458,6 +1595,9 @@ export const Game = (() => {
     } else if (itemId === 'bookInk') {
       bonuses.bookPower += 10;
       itemMessage = 'El Libro de Vanitas inflige un 10% más de daño.';
+    } else if (itemId === 'bloodLetter') {
+      bonuses.crit += 3;
+      itemMessage = 'Varek aumenta un 3% su probabilidad de crítico.';
     }
 
     closeInventoryModal();
@@ -1469,8 +1609,93 @@ export const Game = (() => {
   getElementById('inventory-modal').addEventListener('click', event => {
     if (event.target === event.currentTarget) closeInventoryModal();
   });
+
+  function isEditableKeyboardTarget(target) {
+    return target instanceof HTMLElement
+      && (target.isContentEditable || target.matches('input, textarea, select, [role="textbox"]'));
+  }
+
+  function focusAdjacentAction(key) {
+    const buttons = [...getElementById('grid').querySelectorAll('button:not(:disabled)')];
+    if (!buttons.length) return false;
+
+    const activeIndex = buttons.indexOf(document.activeElement);
+    const currentIndex = activeIndex === -1
+      ? Math.min(keyboardActionIndex, buttons.length - 1)
+      : activeIndex;
+    const currentBounds = buttons[currentIndex].getBoundingClientRect();
+    const currentX = currentBounds.left + currentBounds.width / 2;
+    const currentY = currentBounds.top + currentBounds.height / 2;
+    const directions = {
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+    };
+    const [directionX, directionY] = directions[key];
+    const candidates = buttons
+      .map((button, index) => {
+        if (index === currentIndex) return null;
+        const bounds = button.getBoundingClientRect();
+        const offsetX = bounds.left + bounds.width / 2 - currentX;
+        const offsetY = bounds.top + bounds.height / 2 - currentY;
+        const forward = offsetX * directionX + offsetY * directionY;
+        if (forward <= 0) return null;
+        const lateral = Math.abs(offsetX * directionY - offsetY * directionX);
+        return { button, index, score: forward + lateral * 1.5 };
+      })
+      .filter(Boolean)
+      .sort((first, second) => first.score - second.score);
+    const target = candidates[0];
+    if (!target) return false;
+
+    keyboardActionIndex = target.index;
+    target.button.focus({ preventScroll: true });
+    return true;
+  }
+
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !getElementById('inventory-modal').hidden) closeInventoryModal();
+    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey
+      || isEditableKeyboardTarget(event.target) || getElementById('c').hidden) return;
+
+    if (event.key === 'Escape') {
+      if (!getElementById('inventory-modal').hidden) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeInventoryModal();
+      } else if (saveAvailable && getElementById('game-menu-modal').hidden) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        getElementById('return-menu').click();
+      }
+      return;
+    }
+
+    if (!getElementById('inventory-modal').hidden || !getElementById('game-menu-modal').hidden) return;
+    if (parryHandler) return;
+
+    if (event.key.startsWith('Arrow')) {
+      if (focusAdjacentAction(event.key)) event.preventDefault();
+      return;
+    }
+
+    if (!saveAvailable) return;
+    if (/^[1-4]$/.test(event.key)) {
+      const skillButton = getElementById('grid').querySelectorAll('button')[Number(event.key) - 1];
+      if (skillButton && !skillButton.disabled) {
+        event.preventDefault();
+        skillButton.click();
+      }
+      return;
+    }
+
+    if (event.key.toLowerCase() === 'i' && !getElementById('bagb').disabled) {
+      event.preventDefault();
+      openInventoryModal();
+    } else if (event.key.toLowerCase() === 'm' && !getElementById('return-menu').disabled) {
+      event.preventDefault();
+      getElementById('return-menu').click();
+    }
   });
 
   function scrollSkillPool() {
@@ -1628,7 +1853,7 @@ export const Game = (() => {
       return;
     }
 
-    if (skill.barrier || skill.heal || skill.critNext || skill.luckNext
+    if (skill.barrier || skill.heal || skill.critNext || skill.luckNext || skill.invulnerable
       || skill.fullHeal || skill.healPercent || skill.cleanse) {
       const effects = [];
       if (skill.barrier) {
@@ -1641,6 +1866,14 @@ export const Game = (() => {
         barrier.shield += skill.barrier;
         barrier.label = `Barrera ${barrier.shield} PV`;
         effects.push(`crea una barrera de ${skill.barrier} PV`);
+      }
+      if (skill.invulnerable) {
+        addStatusEffect(playerStatuses, {
+          id: 'invulnerable',
+          label: 'Bastión del Señor',
+          turns: skill.invulnerable,
+        });
+        effects.push(`queda protegido de todo daño durante ${skill.invulnerable} turnos`);
       }
       if (skill.heal) {
         const restoredHealth = Math.min(skill.heal, getMaxHealth() - hp);
@@ -1694,7 +1927,7 @@ export const Game = (() => {
         getCriticalChancePercent() / 100 + (skill.cbonus || 0) / 100 + (frenzyTurns > 0 ? .5 : 0) + nextAttackCritBonus,
       );
       const isCritical = gamblerLuck ? gamblerLuck.success : Math.random() < criticalChance;
-      const affinity = getAffinityMultiplier(enemy, skill.dt);
+      const affinity = getSkillAffinityMultiplier(skill);
       const classDamageMultiplier = frenzyTurns ? 2 : 1;
       const bookDamageMultiplier = skill.book ? getBookDamageMultiplier() : 1;
       const skillAttackPower = getSkillAttackPower(skill);
@@ -1712,7 +1945,17 @@ export const Game = (() => {
       playAnimation(getElementById('en'), 'hit');
       renderInterface();
       const criticalPrefix = isCritical ? '¡Golpe crítico! ' : '';
-      await typeMessage(`${criticalPrefix}${enemy.n} recibió ${damage} de daño (${skill.dt} x${affinity.toFixed(2)} · ${getAffinityLabel(affinity)}).`);
+      const damageTypes = getSkillDamageTypes(skill).join(' + ');
+      await typeMessage(`${criticalPrefix}${enemy.n} recibió ${damage} de daño (${damageTypes} x${affinity.toFixed(2)} · ${getAffinityLabel(affinity)}).`);
+
+      if (skill.healAfterHit) {
+        const healing = Math.min(Math.round(getMaxHealth() * skill.healAfterHit), getMaxHealth() - hp);
+        hp += healing;
+        if (healing) {
+          renderInterface();
+          await typeMessage(`${playerName} recupera ${healing} PV con la luz de la Estrella.`);
+        }
+      }
 
       if (skill.rmp) {
         const restoredMana = Math.min(skill.rmp, getMaxMana() - mp);
@@ -1747,7 +1990,7 @@ export const Game = (() => {
           id: 'poison',
           label: skill.dt,
           turns: 2,
-          damage: Math.max(1, Math.round(skill.dot * characterDamageMultiplier)),
+          damage: Math.max(1, Math.round(skill.dot * characterDamageMultiplier * getStatusDamageMultiplier())),
         });
         renderInterface();
         await typeMessage(`¡${enemy.n} queda afectado por ${skill.dt}!`);
@@ -1979,7 +2222,7 @@ export const Game = (() => {
         if (outcome === 'perfect') {
           const reflectedDamage = Math.round(incomingDamage * .1);
           enemy.hp -= reflectedDamage;
-          mp = Math.min(getMaxMana(), mp + 3);
+          mp = Math.min(getMaxMana(), mp + 1);
           playAnimation(getElementById('en'), 'hit');
           setCombatMessage('¡PARRY PERFECTO!\nDevuelves ' + reflectedDamage + ' de daño');
         } else if (outcome === 'good') {
@@ -1990,18 +2233,22 @@ export const Game = (() => {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          setCombatMessage(damageResult.recipient === 'companion'
-            ? `Parry exitoso: ${companionDamageMessage} Devuelves ${reflectedDamage} de daño.`
-            : 'Parry exitoso: recibes ' + Math.ceil(incomingDamage / 2) + ' y devuelves ' + reflectedDamage + ' de daño');
+          const receivedMessage = damageResult.recipient === 'companion'
+            ? companionDamageMessage
+            : getIncomingDamageMessage(damageResult);
+          setCombatMessage(`Parry exitoso: ${receivedMessage} Devuelves ${reflectedDamage} de daño.`);
         } else {
           const damageResult = applyIncomingDamage(incomingDamage);
           if (damageResult.recipient === 'companion') {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          setCombatMessage(damageResult.recipient === 'companion'
-            ? `¡Golpe recibido! ${companionDamageMessage}`
-            : '¡Golpe recibido! ' + incomingDamage + ' de daño');
+          const receivedMessage = damageResult.recipient === 'companion'
+            ? companionDamageMessage
+            : getIncomingDamageMessage(damageResult);
+          setCombatMessage(damageResult.recipient === 'invulnerable'
+            ? receivedMessage
+            : `¡Golpe recibido! ${receivedMessage}`);
         }
 
         renderInterface();
@@ -2030,7 +2277,7 @@ export const Game = (() => {
     if (enemy.hp <= 0) return win();
 
     await tickDamageStatuses(playerStatuses, getCharacterName(), damage => {
-      hp -= damage;
+      return applyIncomingDamage(damage, false);
     });
     if (hp <= 0) {
       if (bag.fen > 0) {
@@ -2135,6 +2382,7 @@ export const Game = (() => {
     best = Math.max(best, level);
     saveBestScore();
     spawnEnemy();
+    const witchBarrier = createJeanneBarrier();
 
     if (getZoneIndex() !== previousZoneIndex) {
       updateZone();
@@ -2155,6 +2403,7 @@ export const Game = (() => {
       ? `¡Ronda ${level}! Un jefe bloquea el paso: ${enemy.n}.`
       : `¡Ronda ${level}! Aparece ${enemy.n}.`;
     await typeMessage(encounterMessage);
+    if (witchBarrier) await typeMessage(`Jeanne alza una barrera mágica de ${witchBarrier} PV.`);
     await offerVanitasPathUpgrade();
     showCombatActions();
   }
@@ -2169,6 +2418,68 @@ export const Game = (() => {
   }
 
   async function offerVanitasPathUpgrade() {
+    if (currentCharacter === 'solaris' && [11, 21, 31, 41].includes(level)) {
+      setCombatMessage('Elige el juramento que guiará al Caballero.');
+      await new Promise(resolve => {
+        const choosePath = (path, title) => {
+          solarisPath = path;
+          unlockedSkills = unlockedSkills.filter(skill => !skill.route || skill.route === path);
+          activeSkills = activeSkills.map(skill =>
+            skill.route && skill.route !== path ? { ...SOLARIS_STARTER_SKILLS[0] } : skill,
+          );
+          const routeSkill = SOLARIS_SKILLS.find(skill => skill.route === path);
+          if (routeSkill && !unlockedSkills.some(skill => skill.id === routeSkill.id)) {
+            unlockedSkills.push(routeSkill);
+          }
+          resolve(title);
+        };
+
+        renderActionMenu([
+          {
+            t: 'Ruta del Cruzado',
+            s: '+10% Atq. Físico. Tus habilidades ofensivas también infligen daño Sagrado. Desbloquea ¡PRAISE THE SUN! (400% Atq. Físico, Sagrado + Fuego, consume 20 MP).',
+            f: () => choosePath('crusader', 'Solaris jura combatir bajo la luz sagrada.'),
+          },
+          {
+            t: 'Ruta del Custodio',
+            s: '+10% Defensa. Desbloquea Bastión del Señor: inmunidad a todo daño durante 3 turnos, consume 10 MP.',
+            f: () => choosePath('warden', 'Solaris jura protegerse tras el Bastión del Señor.'),
+          },
+        ]);
+      }).then(message => typeMessage(message, 500));
+
+      renderInterface();
+      return;
+    }
+    if (currentCharacter === 'jeanne' && [11, 21, 31, 41].includes(level)) {
+      setCombatMessage('Elige qué destino seguirá la magia de Jeanne.');
+      await new Promise(resolve => {
+        const choosePath = (path, title) => {
+          jeannePath = path;
+          unlockedSkills = unlockedSkills.filter(skill => !skill.route || skill.route === path);
+          activeSkills = activeSkills.map(skill =>
+            skill.route && skill.route !== path ? { ...JEANNE_STARTER_SKILLS[0] } : skill,
+          );
+          resolve(title);
+        };
+
+        renderActionMenu([
+          {
+            t: 'Ruta de la Torre',
+            s: 'Caos, terremotos y destrucción de defensas. +10% Atq. Mágico. Desbloquea hechizos malignos y cataclísmicos.',
+            f: () => choosePath('tower', 'Jeanne abraza el poder destructivo de la Torre.'),
+          },
+          {
+            t: 'Ruta de la Estrella',
+            s: 'Sanación, escudos, bendiciones y magia de luz. +10% al daño de estados elementales. Desbloquea hechizos combinados, Sagrados y Cósmicos.',
+            f: () => choosePath('star', 'Jeanne sigue la luz de la Estrella.'),
+          },
+        ]);
+      }).then(message => typeMessage(message, 500));
+
+      renderInterface();
+      return;
+    }
     if (currentCharacter === 'varek' && [11, 21, 31, 41].includes(level)) {
       setCombatMessage('Elige qué instinto guiará la próxima apuesta.');
       await new Promise(resolve => {
@@ -2260,6 +2571,7 @@ export const Game = (() => {
       trap: 0,
       bladeOil: 0,
       bookInk: 0,
+      bloodLetter: 0,
     };
     unlockedSkills = [];
     corruption = 0;
@@ -2269,6 +2581,8 @@ export const Game = (() => {
     vanitasPathRank = 0;
     varekPath = null;
     varekPathRank = 0;
+    solarisPath = null;
+    jeannePath = null;
     playerStatuses = [];
     companion = null;
     activeTransformation = null;

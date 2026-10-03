@@ -108,7 +108,7 @@
     <header class="box" id="rb" aria-label="Progreso de la partida">
       <span id="rn"></span>
       <span id="zn"></span>
-      <button id="return-menu" type="button" aria-label="Volver al menú principal" disabled>Menu</button>
+      <button id="return-menu" type="button" aria-label="Volver al menú principal" aria-keyshortcuts="m Escape" disabled>Menu</button>
     </header>
     <output class="box" id="log" aria-live="polite" aria-atomic="true"></output>
     <aside id="ie" aria-label="Estado del enemigo">
@@ -153,6 +153,10 @@
         <div class="bar" role="progressbar" aria-label="Vida del personaje" aria-valuemin="0" aria-valuemax="100"><i id="pbar"></i></div>
         <div id="status-player" class="effect-indicators player-effects" aria-label="Estados del personaje" aria-live="polite"></div>
       </div>
+      <div id="witch-barrier-meter" class="witch-barrier-meter" hidden>
+        <div class="r sm"><span>Barrera mágica</span><span id="witch-barrier-value"></span></div>
+        <div class="bar witch-barrier-bar" role="progressbar" aria-label="Barrera mágica de Jeanne" aria-valuemin="0" aria-valuemax="100"><i id="witch-barrier-fill"></i></div>
+      </div>
       <div id="vanitas-meter" class="corruption-meter" hidden>
         <div class="r sm"><span>Corrupción</span><span id="corruption-value">0%</span></div>
         <div class="bar corruption-bar" role="progressbar" aria-label="Corrupción de Vanitas" aria-valuemin="0" aria-valuemax="100"><i id="corruption-fill"></i></div>
@@ -162,13 +166,13 @@
 
   <!-- Acciones disponibles y detalles del combate -->
   <footer class="ui" aria-label="Controles de combate">
-    <nav id="grid" aria-label="Acciones disponibles"></nav>
+    <nav id="grid" aria-label="Acciones disponibles" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter"></nav>
     <section id="info" aria-label="Detalles de la acción">
       <output id="dsc" aria-live="polite"></output>
       <div class="row">
         <span id="damage-label">Daño</span>
         <output id="dmg" aria-labelledby="damage-label">—</output>
-        <button id="bagb" type="button" aria-label="Abrir mochila">Mochila</button>
+        <button id="bagb" type="button" aria-label="Abrir mochila" aria-keyshortcuts="i">Mochila</button>
       </div>
     </section>
   </footer>

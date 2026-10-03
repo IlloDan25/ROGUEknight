@@ -566,6 +566,18 @@ export const SOLARIS_SKILLS = [
     p: 60, a: 84, c: 18, cbonus: 18, sprite: 'forgecraft/diamond_sawblades',
     d: 'La técnica más arriesgada de Solaris: lenta, pero devastadora.',
   },
+  {
+    id: 'solaris-crusader-praise', route: 'crusader', minLevel: 11,
+    t: 'fis', n: '¡PRAISE THE SUN!', dt: 'Sagrado + Fuego', damageTypes: ['Sagrado', 'Fuego'],
+    p: 0, a: 94, c: 20, directMultiplier: 4, meteor: true, sprite: 'fire/fire_storm',
+    d: 'Un meteoro sagrado e ígneo cae sobre el enemigo e inflige un daño equivalente al 400% del ataque físico. Consume 20 MP.',
+  },
+  {
+    id: 'solaris-warden-bastion', route: 'warden', minLevel: 11,
+    t: 'sup', n: 'Bastión del Señor', dt: 'Sagrado', p: 0, a: 100, c: 10,
+    invulnerable: 3, sprite: 'ice/condensation_shield',
+    d: 'Te protege de todo daño durante 3 turnos. Consume 10 MP.',
+  },
 ];
 
 export const JEANNE_SKILL_LINES = [
@@ -917,6 +929,48 @@ export const JEANNE_SKILLS = [
     id: 'jeanne-63', minLevel: 16, t: 'sup', n: 'Compás de Cristal', dt: 'Arcano',
     p: 0, a: 100, c: 9, critNext: .3, sprite: 'enchantment/sure_blade',
     d: 'Afina su siguiente ataque y aumenta su probabilidad de crítico.',
+  },
+  {
+    id: 'jeanne-tower-01', route: 'tower', minLevel: 11,
+    t: 'mag', n: 'Ruina de la Torre', dt: 'Rúnico', p: 28, a: 90, c: 10,
+    dot: 8, sprite: 'earth/shatter',
+    d: 'Un terremoto quiebra el terreno y deja al enemigo bajo una lluvia de escombros.',
+  },
+  {
+    id: 'jeanne-tower-02', route: 'tower', minLevel: 25,
+    t: 'mag', n: 'Colapso de las Cadenas', dt: 'Vacío', p: 42, a: 88, c: 16,
+    cbonus: 12, sprite: 'translocation/disjunction',
+    d: 'Una explosión de magia maligna golpea con fuerza al objetivo.',
+  },
+  {
+    id: 'jeanne-tower-03', route: 'tower', minLevel: 45,
+    t: 'mag', n: 'Cataclismo Absoluto', dt: 'Fuego', p: 58, a: 82, c: 22,
+    dot: 16, sprite: 'fire/fire_storm',
+    d: 'La Torre se desploma en una erupción que abrasa y arrasa al enemigo.',
+  },
+  {
+    id: 'jeanne-star-01', route: 'star', minLevel: 11,
+    t: 'mag', n: 'Convergencia Elemental', dt: 'Fuego + Hielo', damageTypes: ['Fuego', 'Hielo'],
+    p: 26, a: 94, c: 10, dot: 7, sprite: 'ice/ice_storm',
+    d: 'Fuego y hielo convergen en una ráfaga que deja una quemadura elemental.',
+  },
+  {
+    id: 'jeanne-star-02', route: 'star', minLevel: 25,
+    t: 'sup', n: 'Bendición Estelar', dt: 'Sagrado', p: 0, a: 100, c: 14,
+    heal: 24, sprite: 'enchantment/infusion',
+    d: 'Una luz sagrada restaura la vida de Jeanne.',
+  },
+  {
+    id: 'jeanne-star-03', route: 'star', minLevel: 25,
+    t: 'mag', n: 'Órbita Cósmica', dt: 'Cósmico + Arcano', damageTypes: ['Cósmico', 'Arcano'],
+    p: 39, a: 92, c: 16, cbonus: 10, sprite: 'conjuration/orb_of_destruction',
+    d: 'Un astro de magia cósmica atraviesa el campo y golpea con energía arcana.',
+  },
+  {
+    id: 'jeanne-star-04', route: 'star', minLevel: 45,
+    t: 'mag', n: 'Aurora de la Esperanza', dt: 'Sagrado + Hielo', damageTypes: ['Sagrado', 'Hielo'],
+    p: 52, a: 96, c: 20, healAfterHit: .2, sprite: 'enchantment/corona',
+    d: 'Una aurora sagrada y helada daña al rival y cura un 20% de la vida máxima.',
   },
 ].map(skill => ({ ...skill, evolves: skill.minLevel <= 16 }));
 
