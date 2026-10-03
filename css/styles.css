@@ -179,6 +179,12 @@ body {
   transform: scale(.92);
   transform-origin: 50% 100%;
 }
+#kw.gambler-player #kimg {
+  top: -2%;
+  left: 0;
+  transform: scale(.9);
+  transform-origin: 50% 100%;
+}
 .sh {
   position: absolute;
   left: 28.5%;
@@ -523,6 +529,38 @@ button small {
 .fade {
   animation: fd 1.5s ease-out
 }
+@media (min-width: 641px) {
+  body {
+    place-items: stretch;
+    overflow: hidden;
+  }
+
+  #c {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: min(100vw, 177.777778vh);
+    width: min(100vw, 177.777778dvh);
+    height: min(100vh, 56.25vw);
+    height: min(100dvh, 56.25vw);
+    aspect-ratio: 16 / 9;
+    max-width: none;
+    box-shadow: none;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+  }
+
+  .scene {
+    font-size: 1rem;
+  }
+
+  .ui {
+    gap: 1rem;
+    padding: 1rem;
+    font-size: .9rem;
+  }
+}
+
 @media(max-width:640px) {
   .scene,
   .ui {
@@ -849,6 +887,42 @@ button small {
   transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
+.class-option--varek {
+  border-color: rgba(202, 87, 99, .88);
+  color: #fff0ed;
+  background: linear-gradient(155deg, rgba(83, 29, 39, .96), rgba(20, 18, 27, .97) 72%);
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, .24), inset 0 0 0 1px rgba(255, 196, 186, .08);
+  font: inherit;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.class-option--varek:hover {
+  transform: translateY(-5px);
+  border-color: #ffc0b7;
+  box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, .36), inset 0 0 0 1px rgba(255, 196, 186, .15);
+}
+
+.class-option--varek:focus-visible {
+  outline: 3px solid #ffc0b7;
+  outline-offset: 4px;
+}
+
+.class-option--varek h2 {
+  margin-top: .25rem;
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  line-height: 1.35;
+}
+
+.class-option--varek .class-role,
+.class-option--varek .class-stats {
+  color: #f1a3a3;
+}
+
+.class-option--varek .class-cta {
+  color: #ffe1dc;
+}
+
 .class-option--jeanne:hover {
   transform: translateY(-5px);
   border-color: #b6e9ba;
@@ -964,6 +1038,17 @@ button small {
 .class-cta span {
   font-family: Arial, sans-serif;
   font-size: 1.35rem;
+}
+
+@media (min-width: 761px) {
+  #title-screen[data-view="difficulty"] {
+    align-items: flex-start;
+  }
+
+  .difficulty-panel {
+    align-self: flex-start;
+    margin-block: clamp(2rem, 5vh, 4rem);
+  }
 }
 
 .ally-companion {
@@ -1554,6 +1639,10 @@ button small {
   }
 
   .class-option--jeanne {
+    min-height: 17rem;
+  }
+
+  .class-option--varek {
     min-height: 17rem;
   }
 

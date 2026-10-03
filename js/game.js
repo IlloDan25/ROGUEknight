@@ -12,6 +12,9 @@ import {
   JEANNE_STARTER_SKILLS,
   JEANNE_EVOLUTION_LEVELS,
   JEANNE_EVOLUTION_SUFFIXES,
+  VAREK_SKILLS,
+  VAREK_SKILL_LINES,
+  VAREK_STARTER_SKILLS,
 } from './data/skills.js';
 import {
   MONSTER_CLASSES,
@@ -210,11 +213,15 @@ export const Game = (() => {
   let currentCharacter = 'solaris';
   let saveAvailable = false;
   let inventorySkillSlot = 0;
+  let inventoryLoadoutChanged = false;
   function getCharacterName() {
-    return currentCharacter === 'vanitas' ? 'Vanitas' : currentCharacter === 'jeanne' ? 'Jeanne' : 'Solaris';
+    return currentCharacter === 'vanitas' ? 'Vanitas'
+      : currentCharacter === 'jeanne' ? 'Jeanne'
+        : currentCharacter === 'varek' ? 'Varek' : 'Solaris';
   }
 
   function getSkillTier() {
+    if (currentCharacter === 'varek') return Math.min(10, Math.floor(level / 10));
     if (level >= 45) return 3;
     if (level >= 25) return 2;
     if (level >= 10) return 1;
@@ -224,18 +231,42 @@ export const Game = (() => {
   function getStarterSkillLines() {
     if (currentCharacter === 'vanitas') return VANITAS_SKILL_LINES;
     if (currentCharacter === 'jeanne') return JEANNE_SKILL_LINES;
+    if (currentCharacter === 'varek') return VAREK_SKILL_LINES;
     return SOLARIS_SKILL_LINES;
+  }
+
+  function getStarterSkillDefinitions() {
+    if (currentCharacter === 'vanitas') return VANITAS_STARTER_SKILLS;
+    if (currentCharacter === 'jeanne') return JEANNE_STARTER_SKILLS;
+    if (currentCharacter === 'varek') return VAREK_STARTER_SKILLS;
+    return SOLARIS_STARTER_SKILLS;
+  }
+
+  function getCurrentBaseSkills() {
+    const tier = getSkillTier();
+    const starterSkills = getStarterSkillDefinitions();
+    return getStarterSkillLines().map((line, lineIndex) => {
+      const currentTier = Math.min(tier, line.length - 1);
+      return {
+        ...line[currentTier],
+        line: lineIndex,
+        tier: currentTier,
+        dt: starterSkills[lineIndex].dt,
+      };
+    });
   }
 
   function getCharacterSkills() {
     if (currentCharacter === 'vanitas') return VANITAS_SKILLS;
     if (currentCharacter === 'jeanne') return JEANNE_SKILLS;
+    if (currentCharacter === 'varek') return VAREK_SKILLS.filter(skill => !skill.route || skill.route === varekPath);
     return SOLARIS_SKILLS;
   }
   const createStarterSkills = () => {
     const starterSkills = currentCharacter === 'vanitas'
       ? VANITAS_STARTER_SKILLS
-      : currentCharacter === 'jeanne' ? JEANNE_STARTER_SKILLS : SOLARIS_STARTER_SKILLS;
+      : currentCharacter === 'jeanne' ? JEANNE_STARTER_SKILLS
+        : currentCharacter === 'varek' ? VAREK_STARTER_SKILLS : SOLARIS_STARTER_SKILLS;
     return starterSkills.map(skill => ({ ...skill }));
   };
   let activeSkills = createStarterSkills();
@@ -433,6 +464,8 @@ export const Game = (() => {
   let frenzyTurns = 0;
   let vanitasPath = null;
   let vanitasPathRank = 0;
+  let varekPath = null;
+  let varekPathRank = 0;
   let best = 0;
   let parryHandler = null;
   let animationFrame;
@@ -450,11 +483,11 @@ export const Game = (() => {
   };
 
   const SAVE_DATA_FORMAT = 'rogueknight-save';
-  const SAVE_DATA_VERSION = 2;
+  const SAVE_DATA_VERSION = 3;
   const SAVE_BAG_KEYS = ['pot', 'sup', 'eter', 'fen', 'scrolls', 'smoke', 'trap', 'bladeOil', 'bookInk'];
   const SAVE_BONUS_KEYS = ['hp', 'attack', 'def', 'vamp', 'crit', 'mp', 'bookPower'];
-  const SAVE_PLAYER_STATUS_IDS = ['frenzy', 'smoke', 'barrier', 'crit-next'];
-  const SAVE_ENEMY_STATUS_IDS = ['poison', 'bleed', 'stun'];
+  const SAVE_PLAYER_STATUS_IDS = ['frenzy', 'smoke', 'barrier', 'crit-next', 'roulette-attack', 'gambler-luck'];
+  const SAVE_ENEMY_STATUS_IDS = ['poison', 'bleed', 'stun', 'sleep'];
 
   function requireSaveRecord(value, label) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -481,6 +514,9 @@ export const Game = (() => {
     if (characterId === 'jeanne') {
       return { lines: JEANNE_SKILL_LINES, starters: JEANNE_STARTER_SKILLS, skills: JEANNE_SKILLS };
     }
+    if (characterId === 'varek') {
+      return { lines: VAREK_SKILL_LINES, starters: VAREK_STARTER_SKILLS, skills: [...VAREK_STARTER_SKILLS, ...VAREK_SKILLS] };
+    }
     return { lines: SOLARIS_SKILL_LINES, starters: SOLARIS_STARTER_SKILLS, skills: SOLARIS_SKILLS };
   }
 
@@ -490,7 +526,7 @@ export const Game = (() => {
 
     if (Number.isInteger(savedSkill.line)) {
       const lineIndex = requireSaveNumber(savedSkill.line, 'Línea de habilidad', 0, 3, true);
-      const tier = requireSaveNumber(savedSkill.tier, 'Nivel de habilidad', 0, 3, true);
+      const tier = requireSaveNumber(savedSkill.tier, 'Nivel de habilidad', 0, characterId === 'varek' ? 10 : 3, true);
       const skill = lines[lineIndex]?.[tier];
       if (!skill) throw new Error('Una habilidad inicial no existe.');
       return { ...skill, line: lineIndex, tier, dt: starters[lineIndex].dt };
@@ -528,8 +564,15 @@ export const Game = (() => {
       const status = { id: savedStatus.id, label: savedStatus.label };
       for (const key of ['turns', 'damage', 'shield', 'bonus']) {
         if (savedStatus[key] !== undefined) {
-          status[key] = requireSaveNumber(savedStatus[key], 'Valor de estado', 0, 100000);
+          status[key] = requireSaveNumber(savedStatus[key], 'Valor de estado', 0, 1_000_000_000_000);
         }
+      }
+      if (savedStatus.reduction !== undefined) {
+        status.reduction = requireSaveNumber(savedStatus.reduction, 'Reducción de daño', 0, 100);
+      }
+      if (savedStatus.success !== undefined) {
+        if (typeof savedStatus.success !== 'boolean') throw new Error('El resultado de suerte guardado no es válido.');
+        status.success = savedStatus.success;
       }
       return status;
     });
@@ -563,6 +606,8 @@ export const Game = (() => {
         frenzyTurns,
         vanitasPath,
         vanitasPathRank,
+        varekPath,
+        varekPathRank,
         best,
         unlockedSkills,
         activeSkills,
@@ -573,13 +618,13 @@ export const Game = (() => {
 
   function loadSaveData(saveData) {
     requireSaveRecord(saveData, 'El archivo');
-    if (saveData.format !== SAVE_DATA_FORMAT || ![1, SAVE_DATA_VERSION].includes(saveData.version)) {
+    if (saveData.format !== SAVE_DATA_FORMAT || ![1, 2, SAVE_DATA_VERSION].includes(saveData.version)) {
       throw new Error('El archivo no es una partida compatible de RogueKnight.');
     }
 
     const savedState = requireSaveRecord(saveData.state, 'La partida');
     const characterId = savedState.currentCharacter;
-    if (!['solaris', 'vanitas', 'jeanne'].includes(characterId)) {
+    if (!['solaris', 'vanitas', 'jeanne', 'varek'].includes(characterId)) {
       throw new Error('El personaje guardado no existe.');
     }
 
@@ -610,7 +655,7 @@ export const Game = (() => {
       .find(candidate => candidate.n === savedEnemy.n);
     if (!monster || typeof savedEnemy.b !== 'boolean') throw new Error('El enemigo guardado no existe.');
     const monsterClass = MONSTER_CLASSES[monster.n] || 'Bestia';
-    const maximumEnemyHealth = requireSaveNumber(savedEnemy.mx, 'PV máximos del enemigo', 1, 1000000);
+    const maximumEnemyHealth = requireSaveNumber(savedEnemy.mx, 'PV máximos del enemigo', 1, 1_000_000_000_000);
     const restoredEnemy = {
       n: monster.n,
       e: monster.e,
@@ -620,7 +665,7 @@ export const Game = (() => {
       affinities: getMonsterAffinities(monster.n, monsterClass),
       mx: maximumEnemyHealth,
       hp: requireSaveNumber(savedEnemy.hp, 'PV del enemigo', 1, maximumEnemyHealth),
-      attack: requireSaveNumber(savedEnemy.attack, 'Ataque del enemigo', .1, 1000000),
+      attack: requireSaveNumber(savedEnemy.attack, 'Ataque del enemigo', .1, 1_000_000_000_000),
       statuses: restoreSaveStatuses(savedEnemy.statuses, SAVE_ENEMY_STATUS_IDS, 'Los estados del enemigo'),
     };
 
@@ -638,7 +683,7 @@ export const Game = (() => {
           .flatMap(zone => [...zone.m, ...zone.b])
           .find(candidate => candidate.n === savedCompanion.name);
         if (!companionMonster || characterId !== 'vanitas') throw new Error('El aliado guardado no es válido.');
-        const maximumCompanionHealth = requireSaveNumber(savedCompanion.mx, 'PV máximos del aliado', 1, 1000000);
+        const maximumCompanionHealth = requireSaveNumber(savedCompanion.mx, 'PV máximos del aliado', 1, 1_000_000_000_000);
         return {
           name: companionMonster.n,
           sprite: MONSTER_SPRITES[companionMonster.n] || '',
@@ -695,6 +740,19 @@ export const Game = (() => {
       && (restoredCorruption || restoredFrenzyTurns || restoredVanitasPath || restoredVanitasPathRank)) {
       throw new Error('El archivo contiene estados exclusivos de Vanitas en otro personaje.');
     }
+    const restoredVarekPath = savedState.varekPath ?? null;
+    if (restoredVarekPath !== null && !['ludopata', 'baskerville'].includes(restoredVarekPath)) {
+      throw new Error('La ruta de Varek no es válida.');
+    }
+    const restoredVarekPathRank = requireSaveNumber(savedState.varekPathRank ?? 0, 'Rango de ruta de Varek', 0, 4, true);
+    if (characterId !== 'varek' && (restoredVarekPath || restoredVarekPathRank)) {
+      throw new Error('El archivo contiene estados exclusivos de Varek en otro personaje.');
+    }
+    if ((restoredVarekPath === null) !== (restoredVarekPathRank === 0)
+      || restoredActiveSkills.some(skill => skill.route && skill.route !== restoredVarekPath)
+      || restoredUnlockedSkills.some(skill => skill.route && skill.route !== restoredVarekPath)) {
+      throw new Error('Las habilidades guardadas no coinciden con la ruta de Varek.');
+    }
 
     currentCharacter = characterId;
     level = savedLevel;
@@ -714,6 +772,8 @@ export const Game = (() => {
     nextCorruptionGain = restoredNextCorruptionGain;
     vanitasPath = restoredVanitasPath;
     vanitasPathRank = restoredVanitasPathRank;
+    varekPath = restoredVarekPath;
+    varekPathRank = restoredVarekPathRank;
     best = Math.max(requireSaveNumber(savedState.best, 'Mejor ronda', 0, 100, true), best);
     unlockedSkills = restoredUnlockedSkills;
     activeSkills = restoredActiveSkills;
@@ -725,12 +785,16 @@ export const Game = (() => {
     const activeForm = activeTransformation ? VANITAS_FORMS[activeTransformation] : null;
     playerImage.src = activeForm?.sprite || (currentCharacter === 'vanitas'
       ? './sprites/bard.png'
-      : currentCharacter === 'jeanne' ? './sprites/witch.png' : './sprites/knight.png');
+      : currentCharacter === 'jeanne' ? './sprites/witch.png'
+        : currentCharacter === 'varek' ? './sprites/gambler.png' : './sprites/knight.png');
     playerImage.alt = activeForm
       ? `Vanitas, ${activeForm.name}`
-      : currentCharacter === 'vanitas' ? 'Vanitas, bardo' : currentCharacter === 'jeanne' ? 'Jeanne, bruja' : 'Solaris, caballero';
+      : currentCharacter === 'vanitas' ? 'Vanitas, bardo'
+        : currentCharacter === 'jeanne' ? 'Jeanne, bruja'
+          : currentCharacter === 'varek' ? 'Varek, Gambler' : 'Solaris, caballero';
     getElementById('kw').classList.toggle('vanitas-player', currentCharacter === 'vanitas');
     getElementById('kw').classList.toggle('witch-player', currentCharacter === 'jeanne');
+    getElementById('kw').classList.toggle('gambler-player', currentCharacter === 'varek');
     getElementById('kw').classList.remove('faint');
     getElementById('en').classList.remove('faint');
 
@@ -748,6 +812,7 @@ export const Game = (() => {
     solaris: { hp: 80, mp: 20, physicalAttack: 30, magicAttack: 5, defense: 25, crit: 3 },
     jeanne: { hp: 30, mp: 70, physicalAttack: 5, magicAttack: 30, defense: 5, crit: 8 },
     vanitas: { hp: 60, mp: 36, physicalAttack: 15, magicAttack: 15, defense: 8, crit: 16 },
+    varek: { hp: 75, mp: 25, physicalAttack: 22, magicAttack: 8, defense: 20, crit: 10 },
   };
 
   function getCharacterBaseStats() {
@@ -763,7 +828,9 @@ export const Game = (() => {
   }
 
   function getPhysicalAttack() {
-    return Math.round(getCharacterBaseStats().physicalAttack + 0.7 * (level - 1) + bonuses.attack);
+    const temporaryAttack = findStatusEffect(playerStatuses, 'roulette-attack')?.bonus || 0;
+    const routeAttack = currentCharacter === 'varek' && varekPath === 'baskerville' ? varekPathRank * 2 : 0;
+    return Math.round(getCharacterBaseStats().physicalAttack + 0.7 * (level - 1) + bonuses.attack + temporaryAttack + routeAttack);
   }
 
   function getMagicAttack() {
@@ -772,6 +839,11 @@ export const Game = (() => {
 
   function getSkillAttackPower(skill) {
     return skill.t === 'fis' ? getPhysicalAttack() : getMagicAttack();
+  }
+
+  function getSkillProgressionMultiplier(skill) {
+    if (currentCharacter !== 'varek' || !skill.starter) return 1;
+    return Math.pow(1.12, Math.max(0, level - 11));
   }
 
   function getDefense() {
@@ -791,7 +863,8 @@ export const Game = (() => {
   }
 
   function getStatusDamageMultiplier() {
-    return currentCharacter === 'vanitas' ? 1.5 : 1;
+    if (currentCharacter === 'vanitas') return 1.5;
+    return currentCharacter === 'varek' && varekPath === 'baskerville' ? 1 + varekPathRank * .1 : 1;
   }
 
   function getZoneIndex() {
@@ -1087,10 +1160,13 @@ export const Game = (() => {
   function applyIncomingDamage(damage) {
     if (!companion) {
       const barrier = findStatusEffect(playerStatuses, 'barrier');
-      const absorbed = barrier ? Math.min(damage, barrier.shield) : 0;
-      const remainingDamage = damage - absorbed;
+      const reduction = barrier?.reduction || 0;
+      const reducedDamage = Math.round(damage * (1 - reduction / 100));
+      const absorbed = barrier ? Math.min(reducedDamage, barrier.shield) : 0;
+      const remainingDamage = reducedDamage - absorbed;
 
       if (barrier) {
+        barrier.reduction = 0;
         barrier.shield -= absorbed;
         barrier.label = `Barrera ${barrier.shield} PV`;
         if (barrier.shield <= 0) removeStatusEffect(playerStatuses, 'barrier');
@@ -1137,9 +1213,16 @@ export const Game = (() => {
   async function tickDamageStatuses(statuses, targetLabel, applyDamage) {
     for (const effect of [...statuses]) {
       if (effect.damage && effect.turns > 0) {
-        applyDamage(effect.damage);
+        const damageDealt = applyDamage(effect.damage, effect);
         renderInterface();
         await typeMessage(`${targetLabel} sufre ${effect.damage} de ${effect.label.toLowerCase()}.`);
+        if (currentCharacter === 'varek' && targetLabel === enemy.n && effect.id === 'bleed' && damageDealt > 0) {
+          const restoredHealth = Math.min(damageDealt, getMaxHealth() - hp);
+          hp += restoredHealth;
+          mp = Math.min(getMaxMana(), mp + 1);
+          renderInterface();
+          await typeMessage(`Alimentación Vampírica: Varek recupera ${restoredHealth} PV y 1 MP.`);
+        }
       }
 
       if (effect.turns !== undefined && effect.id !== 'frenzy') {
@@ -1155,13 +1238,16 @@ export const Game = (() => {
     getElementById('bagb').disabled = false;
 
     const skillActions = activeSkills.map(skill => {
-      const manaCost = skill.book && frenzyTurns > 0 ? 0 : skill.c;
+      const manaCost = skill.allManaCost ? mp : skill.book && frenzyTurns > 0 ? 0 : skill.c;
       const rewriteBlocked = skill.rewrite && (companion || enemy.b);
-      const isSupportSkill = Boolean(skill.barrier || skill.heal || skill.critNext);
+      const isSupportSkill = Boolean(
+        skill.baraja || skill.barrier || skill.heal || skill.critNext || skill.luckNext
+        || skill.allManaCost || skill.fullHeal || skill.healPercent || skill.cleanse || skill.sleep,
+      );
       return {
         t: `<span class="ic">${createSkillIconMarkup(skill)}</span>${skill.n}`,
         s: rewriteBlocked ? `${skill.dt} · ${companion ? 'Aliado activo' : 'Jefe inmune'}` : `${skill.dt} · MP ${manaCost}`,
-        d: mp < manaCost || rewriteBlocked,
+        d: mp < manaCost || (skill.allManaCost && mp === 0) || rewriteBlocked,
         f: () => castSkill(skill),
         h: () => {
           if (isSupportSkill) {
@@ -1170,8 +1256,10 @@ export const Game = (() => {
           }
           const multiplier = getAffinityMultiplier(enemy, skill.dt);
           const skillAttackPower = getSkillAttackPower(skill);
-          const minimumDamage = Math.max(1, Math.round(skill.p * skillAttackPower / 10 * .85 * multiplier));
-          const maximumDamage = Math.max(1, Math.round(skill.p * skillAttackPower / 10 * 1.15 * multiplier));
+          const baseDamage = skill.directMultiplier ? skill.directMultiplier * getPhysicalAttack() : skill.p * skillAttackPower / 10;
+          const progressionMultiplier = getSkillProgressionMultiplier(skill);
+          const minimumDamage = Math.max(1, Math.round(baseDamage * progressionMultiplier * .85 * multiplier));
+          const maximumDamage = Math.max(1, Math.round(baseDamage * progressionMultiplier * 1.15 * multiplier));
           const description = `${skill.d}\nTipo: ${skill.dt} · ${getAffinityLabel(multiplier)} (x${multiplier.toFixed(2)})`;
           showActionDetails(description, `${minimumDamage}–${maximumDamage}`);
         },
@@ -1196,6 +1284,10 @@ export const Game = (() => {
   function closeInventoryModal() {
     getElementById('inventory-modal').hidden = true;
     getElementById('c').classList.remove('inventory-open');
+    if (inventoryLoadoutChanged) {
+      inventoryLoadoutChanged = false;
+      showCombatActions();
+    }
     getElementById('bagb').focus();
   }
 
@@ -1204,13 +1296,19 @@ export const Game = (() => {
       ? `Bendición · rango ${vanitasPathRank}`
       : vanitasPath === 'curse'
         ? `Maldición · rango ${vanitasPathRank}`
-        : currentCharacter === 'vanitas' ? 'Elige una ruta en la ronda 11' : 'Sin ruta elegida';
+        : currentCharacter === 'vanitas' ? 'Elige una ruta en la ronda 11'
+          : currentCharacter === 'varek'
+            ? varekPath === 'ludopata' ? `Ruta del Ludópata · rango ${varekPathRank}`
+              : varekPath === 'baskerville' ? `Ruta del Baskerville · rango ${varekPathRank}`
+                : 'Elige una ruta en la ronda 11'
+            : 'Sin ruta elegida';
 
     const portrait = document.createElement('img');
     portrait.className = 'inventory-portrait-image';
     portrait.src = currentCharacter === 'vanitas'
       ? './sprites/bardicon.jpeg'
-      : currentCharacter === 'jeanne' ? './sprites/witchicon.jpeg' : './sprites/knighticon.jpeg';
+      : currentCharacter === 'jeanne' ? './sprites/witchicon.jpeg'
+        : currentCharacter === 'varek' ? './sprites/gamblericon.jpeg' : './sprites/knighticon.jpeg';
     portrait.alt = `${getCharacterName()}, retrato de inventario`;
     getElementById('inventory-portrait').replaceChildren(portrait);
     getElementById('inventory-character').textContent = getCharacterName();
@@ -1222,10 +1320,13 @@ export const Game = (() => {
     getElementById('inventory-crit').textContent = `${Math.round(getCriticalChancePercent())}%`;
     getElementById('inventory-extra-label').textContent = currentCharacter === 'solaris'
       ? 'Nº de parries'
-      : currentCharacter === 'jeanne' ? 'Regen. de maná' : 'Libro de Vanitas';
+      : currentCharacter === 'jeanne' ? 'Regen. de maná'
+        : currentCharacter === 'varek' ? 'Daño de sangrado' : 'Libro de Vanitas';
     getElementById('inventory-extra').textContent = currentCharacter === 'vanitas'
       ? `+${bonuses.bookPower}%`
-      : currentCharacter === 'jeanne' ? `+${getJeanneManaRegen()} MP/t` : String(1 + Math.floor(level / 5));
+      : currentCharacter === 'jeanne' ? `+${getJeanneManaRegen()} MP/t`
+        : currentCharacter === 'varek' ? `${varekPath === 'baskerville' ? varekPathRank * 10 : 0}%`
+          : String(1 + Math.floor(level / 5));
     getElementById('inventory-path').textContent = activePath;
 
     const availableItems = INVENTORY_ITEMS.filter(isAvailableToCurrentCharacter);
@@ -1284,7 +1385,8 @@ export const Game = (() => {
 
     const skillList = document.getElementById('inventory-skills');
     const status = document.getElementById('inventory-grimoire-status');
-    if (!unlockedSkills.length) {
+    const grimoireSkills = [...getCurrentBaseSkills(), ...unlockedSkills];
+    if (!grimoireSkills.length) {
       const emptyMessage = document.createElement('p');
       emptyMessage.className = 'grimoire-empty';
       emptyMessage.textContent = 'Las habilidades aprendidas aparecerán aquí.';
@@ -1292,7 +1394,7 @@ export const Game = (() => {
       return;
     }
 
-    skillList.replaceChildren(...unlockedSkills.map(skill => {
+    skillList.replaceChildren(...grimoireSkills.map(skill => {
       const skillButton = document.createElement('button');
       skillButton.type = 'button';
       skillButton.className = 'grimoire-skill';
@@ -1301,6 +1403,7 @@ export const Game = (() => {
       skillButton.querySelector('.grimoire-skill-name').textContent = skill.n;
       skillButton.addEventListener('click', () => {
         activeSkills[inventorySkillSlot] = { ...skill };
+        inventoryLoadoutChanged = true;
         status.textContent = `${skill.n} equipado en espacio ${inventorySkillSlot + 1}.`;
         renderInventoryGrimoire();
       });
@@ -1436,10 +1539,59 @@ export const Game = (() => {
     await enemyTurn();
   }
 
+  async function useBloodDeck(skill) {
+    const suit = 1 + Math.floor(Math.random() * 4);
+    const value = 1 + Math.floor(Math.random() * 13);
+    const cards = ['', 'Picas', 'Corazones', 'Diamantes', 'Tréboles'];
+    const face = value === 1 ? 'As' : value === 11 ? 'J' : value === 12 ? 'Q' : value === 13 ? 'K' : String(value);
+    const cardMultiplier = (1 + (skill.cardBonus || 0)) * getSkillProgressionMultiplier(skill);
+    let resultMessage = `La carta ${face} de ${cards[suit]} `;
+
+    if (suit === 1) {
+      const damageExtra = Math.round(value * 7 * cardMultiplier);
+      const routeRank = varekPath === 'ludopata' ? varekPathRank : 0;
+      const criticalChance = Math.min(1, getCriticalChancePercent() / 100 + (skill.cardCritBonus || 0) / 100 + routeRank * .05);
+      const isCritical = Math.random() < criticalChance;
+      const damage = Math.round(damageExtra * (isCritical ? 1.8 + (skill.cardCritDamage || 0) + routeRank * .15 : 1));
+      enemy.hp = Math.max(0, enemy.hp - damage);
+      const healing = Math.floor(damage / 2);
+      hp = Math.min(getMaxHealth(), hp + healing);
+      playAnimation(getElementById('en'), 'hit');
+      resultMessage += `inflige ${damage} de daño${isCritical ? ' crítico' : ''} y Varek recupera ${healing} PV.`;
+    } else if (suit === 2) {
+      const healing = Math.round((value * 2 + (level >= 25 ? level : 0)) * (1 + (skill.cardHealBonus || 0)));
+      const restoredHealth = Math.min(healing, getMaxHealth() - hp);
+      hp += restoredHealth;
+      resultMessage += `restaura ${restoredHealth} PV.`;
+    } else if (suit === 3) {
+      const reduction = Math.min(100, value * 5 + (skill.cardShieldBonus || 0));
+      const barrier = findStatusEffect(playerStatuses, 'barrier') || addStatusEffect(playerStatuses, {
+        id: 'barrier', label: '', shield: 0,
+      });
+      barrier.reduction = reduction;
+      barrier.label = `Escudo ${reduction}%`;
+      resultMessage += `prepara un escudo que reduce el próximo golpe un ${reduction}%.`;
+    } else {
+      const bonus = Math.floor(value / 2) + (skill.cardAttackBonus || 0);
+      const existingBonus = findStatusEffect(playerStatuses, 'roulette-attack');
+      if (existingBonus) removeStatusEffect(playerStatuses, 'roulette-attack');
+      addStatusEffect(playerStatuses, {
+        id: 'roulette-attack', label: `Ataque +${bonus}`, bonus, turns: 2,
+      });
+      resultMessage += `aumenta el ataque físico de Varek en ${bonus} hasta su siguiente acción.`;
+    }
+
+    renderInterface();
+    await typeMessage(resultMessage);
+    if (enemy.hp <= 0) await win();
+    else await enemyTurn();
+  }
+
   async function castSkill(skill) {
     lockCombatControls();
     if (skill.book) await useBookPage();
-    mp -= skill.book && frenzyTurns > 0 ? 0 : skill.c;
+    const manaCost = skill.allManaCost ? mp : skill.book && frenzyTurns > 0 ? 0 : skill.c;
+    mp -= manaCost;
     renderInterface();
     const playerName = getCharacterName();
     await typeMessage(`¡${playerName} usó ${skill.n}!`, 250);
@@ -1459,7 +1611,25 @@ export const Game = (() => {
       return;
     }
 
-    if (skill.barrier || skill.heal || skill.critNext) {
+    if (skill.baraja) {
+      await useBloodDeck(skill);
+      return;
+    }
+
+    if (skill.sleep) {
+      if (Math.random() * 100 > skill.a) {
+        await typeMessage('¡Pero falló!');
+      } else {
+        addStatusEffect(enemy.statuses, { id: 'sleep', label: 'Dormido', turns: skill.sleep });
+        renderInterface();
+        await typeMessage(`${enemy.n} cae dormido durante ${skill.sleep} turnos.`);
+      }
+      await enemyTurn();
+      return;
+    }
+
+    if (skill.barrier || skill.heal || skill.critNext || skill.luckNext
+      || skill.fullHeal || skill.healPercent || skill.cleanse) {
       const effects = [];
       if (skill.barrier) {
         const currentBarrier = findStatusEffect(playerStatuses, 'barrier');
@@ -1477,6 +1647,17 @@ export const Game = (() => {
         hp += restoredHealth;
         effects.push(`recupera ${restoredHealth} PV`);
       }
+      if (skill.fullHeal || skill.healPercent) {
+        const healing = skill.fullHeal ? getMaxHealth() - hp : Math.round(getMaxHealth() * skill.healPercent);
+        const restoredHealth = Math.min(healing, getMaxHealth() - hp);
+        hp += restoredHealth;
+        effects.push(`recupera ${restoredHealth} PV`);
+      }
+      if (skill.cleanse) {
+        const removedEffects = playerStatuses.length;
+        playerStatuses = [];
+        effects.push(`elimina ${removedEffects} estados alterados`);
+      }
       if (skill.critNext) {
         removeStatusEffect(playerStatuses, 'crit-next');
         addStatusEffect(playerStatuses, {
@@ -1486,6 +1667,15 @@ export const Game = (() => {
         });
         effects.push(`prepara un ${Math.round(skill.critNext * 100)}% más de crítico para el siguiente ataque`);
       }
+      if (skill.luckNext) {
+        const success = Math.random() < .5;
+        addStatusEffect(playerStatuses, {
+          id: 'gambler-luck',
+          label: success ? 'Suerte' : 'Mala suerte',
+          success,
+        });
+        effects.push(success ? 'asegura un crítico en el próximo ataque' : 'arriesga el próximo ataque a fallar');
+      }
       renderInterface();
       await typeMessage(`${playerName} ${effects.join(' y ')}.`);
       await enemyTurn();
@@ -1493,23 +1683,29 @@ export const Game = (() => {
     }
 
     const nextAttackCritBonus = findStatusEffect(playerStatuses, 'crit-next')?.bonus || 0;
+    const gamblerLuck = findStatusEffect(playerStatuses, 'gambler-luck');
 
-    if (Math.random() * 100 > skill.a) {
+    const attackMissed = gamblerLuck ? !gamblerLuck.success : Math.random() * 100 > skill.a;
+    if (attackMissed) {
       await typeMessage('¡Pero falló!');
     } else {
       const criticalChance = Math.min(
         1,
         getCriticalChancePercent() / 100 + (skill.cbonus || 0) / 100 + (frenzyTurns > 0 ? .5 : 0) + nextAttackCritBonus,
       );
-      const isCritical = Math.random() < criticalChance;
+      const isCritical = gamblerLuck ? gamblerLuck.success : Math.random() < criticalChance;
       const affinity = getAffinityMultiplier(enemy, skill.dt);
       const classDamageMultiplier = frenzyTurns ? 2 : 1;
       const bookDamageMultiplier = skill.book ? getBookDamageMultiplier() : 1;
       const skillAttackPower = getSkillAttackPower(skill);
       const characterDamageMultiplier = skillAttackPower / 10;
+      const progressionMultiplier = getSkillProgressionMultiplier(skill);
+      const baseDamage = skill.directMultiplier
+        ? skill.directMultiplier * getPhysicalAttack()
+        : skill.p * skillAttackPower / 10;
       const damage = Math.max(
         1,
-        Math.round(skill.p * skillAttackPower / 10 * (.85 + Math.random() * .3) * (isCritical ? 1.8 : 1) * affinity * classDamageMultiplier * bookDamageMultiplier),
+        Math.round(baseDamage * progressionMultiplier * (.85 + Math.random() * .3) * (isCritical ? 1.8 : 1) * affinity * classDamageMultiplier * bookDamageMultiplier),
       );
 
       enemy.hp -= damage;
@@ -1568,12 +1764,15 @@ export const Game = (() => {
           damage: poisonDamage,
         });
         renderInterface();
-        await typeMessage(`El Libro deja veneno en la herida de ${enemy.n}.`);
+        await typeMessage(currentCharacter === 'vanitas'
+          ? `El Libro deja veneno en la herida de ${enemy.n}.`
+          : `${playerName} envenena a ${enemy.n}.`);
       }
-      if (skill.bleed && enemy.hp > 0) {
+      if (skill.bleed && enemy.hp > 0 && (!skill.bleedChance || Math.random() < skill.bleedChance)) {
         const bleedDamage = Math.round(
           (skill.bleed + (vanitasPath === 'blessing' ? vanitasPathRank : 0))
-          * getStatusDamageMultiplier(),
+          * getStatusDamageMultiplier()
+          * getSkillProgressionMultiplier(skill),
         );
         addStatusEffect(enemy.statuses, {
           id: 'bleed',
@@ -1603,6 +1802,10 @@ export const Game = (() => {
 
     if (nextAttackCritBonus) {
       removeStatusEffect(playerStatuses, 'crit-next');
+      renderInterface();
+    }
+    if (gamblerLuck) {
+      removeStatusEffect(playerStatuses, 'gambler-luck');
       renderInterface();
     }
 
@@ -1735,7 +1938,9 @@ export const Game = (() => {
       stun = 0;
       removeStatusEffect(enemy.statuses, 'stun');
       await typeMessage(`${enemy.n} está aturdido y no puede actuar.`);
-    } else if (currentCharacter === 'vanitas' || currentCharacter === 'jeanne') {
+    } else if (findStatusEffect(enemy.statuses, 'sleep')) {
+      await typeMessage(`${enemy.n} está dormido y no puede actuar.`);
+    } else if (currentCharacter === 'vanitas' || currentCharacter === 'jeanne' || currentCharacter === 'varek') {
       await typeMessage(`${enemy.n} se lanza contra ${getCharacterName()}.`);
       const incomingDamage = calculateIncomingDamage(1);
       const damageResult = applyIncomingDamage(incomingDamage);
@@ -1818,7 +2023,9 @@ export const Game = (() => {
     }
 
     await tickDamageStatuses(enemy.statuses, enemy.n, damage => {
+      const damageDealt = Math.max(0, Math.min(enemy.hp, damage));
       enemy.hp -= damage;
+      return damageDealt;
     });
     if (enemy.hp <= 0) return win();
 
@@ -1962,6 +2169,39 @@ export const Game = (() => {
   }
 
   async function offerVanitasPathUpgrade() {
+    if (currentCharacter === 'varek' && [11, 21, 31, 41].includes(level)) {
+      setCombatMessage('Elige qué instinto guiará la próxima apuesta.');
+      await new Promise(resolve => {
+        const choosePath = (path, title) => {
+          if (varekPath === path) varekPathRank = Math.min(4, varekPathRank + 1);
+          else {
+            varekPath = path;
+            varekPathRank = 1;
+            unlockedSkills = unlockedSkills.filter(skill => !skill.route || skill.route === path);
+            activeSkills = activeSkills.map(skill =>
+              skill.route && skill.route !== path ? { ...VAREK_STARTER_SKILLS[0] } : skill,
+            );
+          }
+          resolve(title);
+        };
+
+        renderActionMenu([
+          {
+            t: 'Ruta del Ludópata',
+            s: '+5% crítico y +0,15 daño crítico de Baraja Sangrienta por rango. Juicio de la Milicia y Aliento del Viajero.',
+            f: () => choosePath('ludopata', 'La suerte vuelve a sonreírle a Varek.'),
+          },
+          {
+            t: 'Ruta del Baskerville',
+            s: '+2 Atq. Físico y +10% daño de sangrado por rango. Malicious Spear Qliphoth y Breath of Doom.',
+            f: () => choosePath('baskerville', 'La sangre de Baskerville despierta en Varek.'),
+          },
+        ]);
+      }).then(message => typeMessage(message, 500));
+
+      renderInterface();
+      return;
+    }
     if (currentCharacter !== 'vanitas' || ![11, 21, 31, 41].includes(level)) return;
 
     setCombatMessage('Elige qué hacer con el poder del Libro.');
@@ -1995,7 +2235,7 @@ export const Game = (() => {
   }
 
   function start(characterId = 'solaris') {
-    if (!['solaris', 'vanitas', 'jeanne'].includes(characterId)) return;
+    if (!['solaris', 'vanitas', 'jeanne', 'varek'].includes(characterId)) return;
 
     currentCharacter = characterId;
     level = 1;
@@ -2027,6 +2267,8 @@ export const Game = (() => {
     frenzyTurns = 0;
     vanitasPath = null;
     vanitasPathRank = 0;
+    varekPath = null;
+    varekPathRank = 0;
     playerStatuses = [];
     companion = null;
     activeTransformation = null;
@@ -2037,12 +2279,15 @@ export const Game = (() => {
     const playerImage = getElementById('kimg');
     playerImage.src = currentCharacter === 'vanitas'
       ? './sprites/bard.png'
-      : currentCharacter === 'jeanne' ? './sprites/witch.png' : './sprites/knight.png';
+      : currentCharacter === 'jeanne' ? './sprites/witch.png'
+        : currentCharacter === 'varek' ? './sprites/gambler.png' : './sprites/knight.png';
     playerImage.alt = currentCharacter === 'vanitas'
       ? 'Vanitas, bardo'
-      : currentCharacter === 'jeanne' ? 'Jeanne, bruja' : 'Solaris, caballero';
+      : currentCharacter === 'jeanne' ? 'Jeanne, bruja'
+        : currentCharacter === 'varek' ? 'Varek, Gambler' : 'Solaris, caballero';
     getElementById('kw').classList.toggle('vanitas-player', currentCharacter === 'vanitas');
     getElementById('kw').classList.toggle('witch-player', currentCharacter === 'jeanne');
+    getElementById('kw').classList.toggle('gambler-player', currentCharacter === 'varek');
 
     getElementById('kw').classList.remove('faint');
     spawnEnemy();

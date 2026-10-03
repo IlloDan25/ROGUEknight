@@ -9,6 +9,7 @@ const difficultyBackButton = document.getElementById('difficulty-back');
 const solarisButton = document.getElementById('select-solaris');
 const vanitasButton = document.getElementById('select-vanitas');
 const jeanneButton = document.getElementById('select-jeanne');
+const varekButton = document.getElementById('select-varek');
 const returnMenuButton = document.getElementById('return-menu');
 const gameMenuModal = document.getElementById('game-menu-modal');
 const saveGameButton = document.getElementById('save-game-button');
@@ -42,6 +43,7 @@ difficultyBackButton.addEventListener('click', () => {
 solarisButton.addEventListener('click', () => startCharacter('solaris'));
 vanitasButton.addEventListener('click', () => startCharacter('vanitas'));
 jeanneButton.addEventListener('click', () => startCharacter('jeanne'));
+varekButton.addEventListener('click', () => startCharacter('varek'));
 
 function closeGameMenu() {
 	gameMenuModal.hidden = true;

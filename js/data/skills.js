@@ -1129,3 +1129,175 @@ export const VANITAS_SKILLS = [
     d: 'Se transforma en Dragón negro durante cuatro turnos.',
   },
 ];
+
+export const VAREK_STARTER_SKILLS = [
+  {
+    id: 'varek-starter-deck', starter: true, t: 'sup', n: 'Baraja Sangrienta', dt: 'Sangre',
+    p: 0, a: 100, c: 0, baraja: true, sprite: 'necromancy/vampiric_draining',
+    d: 'Roba una carta y activa su efecto. No consume MP.',
+  },
+  {
+    id: 'varek-starter-cut', starter: true, t: 'fis', n: 'Corte Sangriento', dt: 'Corte',
+    p: 11, a: 95, c: 1, cbonus: 10, bleed: 4, bleedChance: .5, sprite: 'enchantment/spectral_weapon',
+    d: 'Un tajo con +10% de crítico y probabilidad de causar sangrado.',
+  },
+  {
+    id: 'varek-starter-dart', starter: true, t: 'mag', n: 'Dardo de Sangre', dt: 'Arcano',
+    p: 13, a: 94, c: 5, bleed: 5, bleedChance: .65, sprite: 'necromancy/agony',
+    d: 'Un proyectil arcano que puede abrir una herida sangrante.',
+  },
+  {
+    id: 'varek-starter-rift', starter: true, t: 'sup', n: 'Grieta Oscura', dt: 'Vacío',
+    p: 0, a: 100, c: 6, sleep: 3, sprite: 'translocation/dispersal',
+    d: 'Sumerge al enemigo en un sueño profundo durante 3 turnos.',
+  },
+].map((skill, line) => ({ ...skill, line, tier: 0 }));
+
+const VAREK_TIER_SUFFIXES = ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+
+export const VAREK_SKILL_LINES = VAREK_STARTER_SKILLS.map((starter, line) =>
+  Array.from({ length: 11 }, (_, tier) => {
+    const suffix = VAREK_TIER_SUFFIXES[tier];
+    const name = suffix ? `${starter.n} ${suffix}` : starter.n;
+    if (line === 0) {
+      return {
+        ...starter,
+        n: name,
+        tier,
+        cardBonus: tier * .75,
+        cardCritBonus: tier * 1.5,
+        cardCritDamage: tier * .08,
+        cardHealBonus: tier * .08,
+        cardShieldBonus: tier * 4,
+        cardAttackBonus: Math.floor(tier * 1.5),
+        d: tier ? `La baraja mejora en la ronda ${tier * 10}: sus cuatro palos ganan poder.` : starter.d,
+      };
+    }
+    if (line === 1) {
+      return {
+        ...starter,
+        n: name,
+        tier,
+        p: 11 + tier * 5,
+        a: Math.min(100, 95 + tier * .5),
+        cbonus: 10 + tier * 2,
+        bleed: 4 + tier * 3,
+        bleedChance: Math.min(.85, .5 + tier * .035),
+        d: `Corte físico mejorado al rango ${tier}. Su crítico y sangrado aumentan con cada decena.`,
+      };
+    }
+    if (line === 2) {
+      return {
+        ...starter,
+        n: name,
+        tier,
+        p: 13 + tier * 5,
+        a: Math.min(100, 94 + tier * .6),
+        c: 5 + Math.floor(tier / 2),
+        bleed: 5 + tier * 3,
+        bleedChance: Math.min(.9, .65 + tier * .025),
+        d: `Proyectil arcano mejorado al rango ${tier}, con más daño y probabilidad de sangrado.`,
+      };
+    }
+    return {
+      ...starter,
+      n: name,
+      tier,
+      c: 6 + Math.floor(tier / 2),
+      sleep: 3 + Math.floor(tier / 3),
+      d: `Duerme al enemigo durante ${3 + Math.floor(tier / 3)} turnos. Mejora cada 10 niveles.`,
+    };
+  }),
+);
+
+const VAREK_SHARED_SKILL_NAMES = [
+  ['Juego de Sangre', 'bleed'], ['Sifón Carmesí', 'drain'], ['As de Ceniza', 'critical'],
+  ['Dado Roto', 'stun'], ['Carta Marcada', 'poison'], ['Pacto Hemático', 'heal'],
+  ['Espejo de Diamante', 'barrier'], ['Critical Gambler', 'luck'],
+  ['Mordida en Vena', 'bleed'], ['Velo Nocturno', 'sleep'],
+  ['Apuesta a Ciegas', 'critical'], ['Cosecha Escarlata', 'bleed'], ['Sangre Prestada', 'drain'],
+  ['Corte de la Reina', 'bleed'], ['Veneno en la Manga', 'poison'], ['Latido Robado', 'heal'],
+  ['Parada de Ónix', 'barrier'], ['Ruleta de Hueso', 'stun'], ['Niebla del Salón', 'sleep'],
+  ['Joker Agrietado', 'luck'],
+  ['Filigrana Letal', 'critical'], ['Rosario de Heridas', 'bleed'], ['Beso del Nocturno', 'drain'],
+  ['Aguja de Eclipse', 'arcane-bleed'], ['Loto Tóxico', 'poison'], ['Sutura Vampírica', 'heal'],
+  ['Bastión de Rubí', 'barrier'], ['Sello del Silencio', 'stun'], ['Sueño de Medianoche', 'sleep'],
+  ['Moneda de la Parca', 'luck'],
+  ['Danza de Navajas', 'bleed'], ['Boca del Abismo', 'drain'], ['Crupier Implacable', 'critical'],
+  ['Lanza de Hematita', 'arcane-bleed'], ['Sangre Corrupta', 'poison'], ['Pulsación Oscura', 'heal'],
+  ['Muralla de Espejos', 'barrier'], ['Golpe de la Banca', 'stun'], ['Somnolencia Profana', 'sleep'],
+  ['Fortuna Escarlata', 'luck'],
+  ['Círculo de Dagas', 'bleed'], ['Trago de Inmortalidad', 'drain'], ['Última Apuesta', 'critical'],
+  ['Estocada Astral', 'arcane-bleed'], ['Rencor Destilado', 'poison'], ['Banquete Carmesí', 'heal'],
+  ['Prisma Sanguíneo', 'barrier'], ['Mazo del Verdugo', 'stun'], ['Réquiem Somnoliento', 'sleep'],
+  ['Destino Barajado', 'luck'],
+  ['Cosecha de Baskerville', 'bleed'], ['Corazón Expropiado', 'drain'], ['Rey de Picas', 'critical'],
+  ['Lluvia de Agujas Negras', 'arcane-bleed'], ['Sangre de la Cripta', 'poison'],
+  ['Bendición del Vampiro', 'heal'], ['Último Refugio', 'barrier'], ['Noche sin Despertar', 'sleep'],
+];
+
+const VAREK_SKILL_BANDS = [1, 6, 11, 16, 25, 45];
+const VAREK_SKILL_EFFECTS = {
+  bleed: { t: 'fis', dt: 'Corte', bleed: band => 3 + band * 2, sprite: 'enchantment/spectral_weapon', d: 'Causa daño físico y puede dejar sangrando al objetivo.' },
+  drain: { t: 'blood', dt: 'Sangre', ls: 1, sprite: 'necromancy/vampiric_draining', d: 'Drena vida según el daño infligido.' },
+  critical: { t: 'fis', dt: 'Corte', cbonus: band => 12 + band * 2, sprite: 'enchantment/tukimas_dance', d: 'Un ataque físico con probabilidad crítica adicional.' },
+  stun: { t: 'mag', dt: 'Sagrado', st: 1, stChance: .45, sprite: 'conjuration/searing_ray', d: 'Una descarga que puede aturdir al enemigo.' },
+  poison: { t: 'mag', dt: 'Veneno', poison: band => 3 + band * 2, sprite: 'poison/venom_bolt', d: 'Envenena al enemigo durante varios turnos.' },
+  heal: { t: 'sup', dt: 'Sangre', heal: band => 12 + band * 7, sprite: 'necromancy/vampiric_draining', d: 'Recupera vida.' },
+  barrier: { t: 'sup', dt: 'Vacío', barrier: band => 14 + band * 8, sprite: 'enchantment/condensation_shield', d: 'Crea una barrera que absorbe el próximo daño.' },
+  luck: { t: 'sup', dt: 'Sangre', luckNext: true, sprite: 'translocation/dispersal', d: 'El próximo ataque será crítico o fallará, según la suerte.' },
+  sleep: { t: 'mag', dt: 'Vacío', sleep: 2, sprite: 'enchantment/darkness', d: 'Duerme al enemigo durante 2 turnos.' },
+  'arcane-bleed': { t: 'mag', dt: 'Arcano', bleed: band => 3 + band * 2, bleedChance: .65, sprite: 'necromancy/agony', d: 'Un proyectil arcano con probabilidad de causar sangrado.' },
+};
+
+export const VAREK_SHARED_SKILLS = VAREK_SHARED_SKILL_NAMES.map(([name, effectName], index) => {
+  const band = Math.floor(index / 10);
+  const effect = VAREK_SKILL_EFFECTS[effectName];
+  const skill = {
+    id: `varek-${String(index + 1).padStart(2, '0')}`,
+    minLevel: VAREK_SKILL_BANDS[band],
+    t: effect.t,
+    n: name,
+    dt: effect.dt,
+    p: effect.t === 'sup' ? 0 : 10 + band * 5 + (index % 5) * 2,
+    a: effect.t === 'sup' ? 100 : 91 + (index % 4) * 2,
+    c: effect.luckNext ? 6 + band * 2 : 3 + band * 2,
+    sprite: effect.sprite,
+    d: effect.d,
+  };
+  for (const [key, value] of Object.entries(effect)) {
+    if (['t', 'dt', 'sprite', 'd'].includes(key)) continue;
+    skill[key] = typeof value === 'function' ? value(band) : value;
+  }
+  if (effect.bleed && !skill.bleedChance) skill.bleedChance = .65;
+  return skill;
+});
+
+export const VAREK_ROUTE_SKILLS = [
+  {
+    id: 'varek-ludopata-judgment', route: 'ludopata', minLevel: 11,
+    t: 'mag', n: 'Juicio de la Milicia', dt: 'Sagrado', p: 28, a: 94, c: 10,
+    st: 1, stChance: .55, sprite: 'conjuration/searing_ray',
+    d: 'Daño sagrado con probabilidad de aturdir.',
+  },
+  {
+    id: 'varek-ludopata-breath', route: 'ludopata', minLevel: 25,
+    t: 'sup', n: 'Aliento del Viajero', dt: 'Sangre', p: 0, a: 100, c: 0,
+    allManaCost: true, fullHeal: true, sprite: 'necromancy/vampiric_draining',
+    d: 'Recupera toda la vida a cambio de todo el MP actual.',
+  },
+  {
+    id: 'varek-baskerville-spear', route: 'baskerville', minLevel: 11,
+    t: 'fis', n: 'Malicious Spear Qliphoth', dt: 'Vacío', p: 20, a: 88, c: 12,
+    directMultiplier: 2, bleed: 12, bleedChance: .6, sprite: 'translocation/dispersal',
+    d: 'Invoca una lanza abisal que inflige 200% del ataque físico y puede causar sangrado.',
+  },
+  {
+    id: 'varek-baskerville-breath', route: 'baskerville', minLevel: 25,
+    t: 'sup', n: 'Breath of Doom', dt: 'Vacío', p: 0, a: 100, c: 20,
+    healPercent: .3, cleanse: true, sprite: 'translocation/dispersal',
+    d: 'Regenera 30% de los PV máximos y elimina todos los estados alterados. Cuesta mucho MP.',
+  },
+];
+
+export const VAREK_SKILLS = [...VAREK_SHARED_SKILLS, ...VAREK_ROUTE_SKILLS];
