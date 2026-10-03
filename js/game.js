@@ -17,6 +17,14 @@ import {
   VAREK_STARTER_SKILLS,
 } from './data/skills.js';
 import {
+  getEnemyCombatStats,
+  getInitialRouteState,
+  getParryMessage,
+  getVarekStarterDamageMultiplier,
+  passesStatusChance,
+  tickStatusDuration,
+} from './data/combat-rules.js';
+import {
   MONSTER_CLASSES,
   MONSTER_LOOT_TABLE,
   MONSTER_SPRITES,
@@ -902,7 +910,7 @@ export const Game = (() => {
 
   function getSkillProgressionMultiplier(skill) {
     if (currentCharacter !== 'varek' || !skill.starter) return 1;
-    return Math.pow(1.06, Math.max(0, getSkillTier() - 1));
+    return getVarekStarterDamageMultiplier(level);
   }
 
   function getDefense() {
@@ -1179,23 +1187,6 @@ export const Game = (() => {
     getElementById('return-menu').disabled = true;
   };
 
-  function getEnemyCombatStats(enemyLevel, isBoss) {
-    const growthTier = Math.max(0, Math.floor(enemyLevel / 10) - 1);
-    const healthGrowth = Math.pow(1.12, growthTier);
-    const attackGrowth = Math.pow(1.05, growthTier);
-    const baseHealth = enemyLevel <= 10
-      ? 8 + 1.5 * enemyLevel
-      : (15 + 7.5 * enemyLevel) * healthGrowth;
-    const baseAttack = enemyLevel <= 10
-      ? .5 + .15 * enemyLevel
-      : (4 + .8 * enemyLevel) * attackGrowth;
-
-    return {
-      mx: Math.round(baseHealth * (isBoss ? 2.5 : 1)),
-      attack: baseAttack * (isBoss ? 1.4 : 1),
-    };
-  }
-
   function spawnEnemy() {
     const zoneIndex = getZoneIndex();
     const isBoss = level % 10 === 0;
@@ -1379,12 +1370,7 @@ export const Game = (() => {
       }
 
       if (effect.turns !== undefined && effect.id !== 'frenzy') {
-        if (effect.deferFirstTick) {
-          effect.deferFirstTick = false;
-        } else {
-          effect.turns--;
-          if (effect.turns <= 0) removeStatusEffect(statuses, effect.id);
-        }
+        if (tickStatusDuration(effect)) removeStatusEffect(statuses, effect.id);
       }
     }
   }
@@ -1787,7 +1773,7 @@ export const Game = (() => {
 
     if (skill.sleep) {
       const attackMissed = Math.random() * 100 > skill.a;
-      const sleepTriggered = !attackMissed && Math.random() < (skill.sleepChance ?? 1);
+      const sleepTriggered = !attackMissed && passesStatusChance(skill.sleepChance ?? 1, Math.random());
       if (attackMissed) {
         await typeMessage('¡Pero falló!');
       } else if (sleepTriggered) {
@@ -2181,18 +2167,19 @@ export const Game = (() => {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          setCombatMessage(damageResult.recipient === 'companion'
-            ? `Parry exitoso: ${companionDamageMessage} Devuelves ${reflectedDamage} de daño.`
-            : 'Parry exitoso: recibes ' + Math.ceil(incomingDamage / 2) + ' y devuelves ' + reflectedDamage + ' de daño');
+          setCombatMessage(getParryMessage(
+            'good',
+            damageResult,
+            getIncomingDamageMessage(damageResult),
+            reflectedDamage,
+          ));
         } else {
           const damageResult = applyIncomingDamage(incomingDamage);
           if (damageResult.recipient === 'companion') {
             companionDamageMessage = getIncomingDamageMessage(damageResult);
           }
           playAnimation(getElementById('kw'), 'shake');
-          setCombatMessage(damageResult.recipient === 'companion'
-            ? `¡Golpe recibido! ${companionDamageMessage}`
-            : '¡Golpe recibido! ' + incomingDamage + ' de daño');
+          setCombatMessage(getParryMessage('miss', damageResult, getIncomingDamageMessage(damageResult)));
         }
 
         renderInterface();
@@ -2468,8 +2455,6 @@ export const Game = (() => {
           vanitasPathRank = 1;
         }
 
-          solarisPath = null;
-          jeannePath = null;
         bonuses.bookPower = vanitasPath === 'curse' ? vanitasPathRank * 10 : 0;
         resolve(title);
       };
@@ -2523,10 +2508,14 @@ export const Game = (() => {
     corruption = 0;
     nextCorruptionGain = 5;
     frenzyTurns = 0;
-    vanitasPath = null;
-    vanitasPathRank = 0;
-    varekPath = null;
-    varekPathRank = 0;
+    ({
+      vanitasPath,
+      vanitasPathRank,
+      varekPath,
+      varekPathRank,
+      solarisPath,
+      jeannePath,
+    } = getInitialRouteState());
     playerStatuses = [];
     companion = null;
     activeTransformation = null;
