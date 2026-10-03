@@ -1355,3 +1355,162 @@ export const VAREK_ROUTE_SKILLS = [
 ];
 
 export const VAREK_SKILLS = [...VAREK_SHARED_SKILLS, ...VAREK_ROUTE_SKILLS];
+
+export const SKILL_RARITIES = Object.freeze({
+  common: { color: '#858b94', scrollWeight: 1 },
+  uncommon: { color: '#388f55', scrollWeight: .65 },
+  rare: { color: '#347dc1', scrollWeight: .35 },
+  epic: { color: '#8751bd', scrollWeight: .16 },
+  legendary: { color: '#c59a2e', scrollWeight: .06 },
+  mythic: { color: '#bd434b', scrollWeight: .02 },
+});
+
+const GENERATED_SKILL_LEVELS = [1, 6, 11, 16, 25, 45];
+const GENERATED_SKILL_NAMES = {
+  solaris: {
+    forms: ['Filo', 'Bastión', 'Voto', 'Embestida', 'Cruzada', 'Égida', 'Veredicto', 'Lanza', 'Sello', 'Maza', 'Juramento', 'Guardia', 'Asalto', 'Columna', 'Estocada', 'Fortaleza', 'Ruptura', 'Carga', 'Corte', 'Estandarte'],
+    epithets: ['del Alba', 'de Hierro', 'Solar', 'del León', 'Sagrado', 'Inquebrantable', 'del Ocaso', 'Radiante', 'del Reino', 'Celestial'],
+    types: ['Corte', 'Contundente', 'Sagrado', 'Fuego', 'Rúnico', 'Vacío'],
+    sprites: ['forgecraft/rending_blade', 'earth/shatter', 'enchantment/corona', 'fire/fire_storm'],
+  },
+  jeanne: {
+    forms: ['Conjuro', 'Oráculo', 'Cántico', 'Prisma', 'Aurora', 'Vórtice', 'Ráfaga', 'Estallido', 'Luz', 'Marea', 'Nexo', 'Lluvia', 'Espiral', 'Bendición', 'Cometa', 'Esfera', 'Fulgor', 'Reflejo', 'Corona', 'Runa'],
+    epithets: ['Estelar', 'del Firmamento', 'de Cristal', 'Cósmico', 'de la Aurora', 'Elemental', 'Sagrado', 'Astral', 'de la Esperanza', 'Radiante'],
+    types: ['Arcano', 'Fuego', 'Hielo', 'Sagrado', 'Rúnico', 'Veneno'],
+    sprites: ['conjuration/orb_of_destruction', 'fire/fire_storm', 'ice/ice_storm', 'enchantment/corona'],
+  },
+  vanitas: {
+    forms: ['Partitura', 'Acorde', 'Elegía', 'Coda', 'Ritual', 'Réquiem', 'Sombra', 'Tinta', 'Lamento', 'Sonata', 'Verso', 'Margen', 'Melodía', 'Epitafio', 'Pentagrama', 'Borrón', 'Arpegio', 'Compás', 'Cántico', 'Estrofa'],
+    epithets: ['Carmesí', 'del Vacío', 'Olvidado', 'Maldito', 'de Medianoche', 'Errante', 'Invertido', 'de los Caídos', 'Sombrío', 'Final'],
+    types: ['Arcano', 'Corte', 'Veneno', 'Vacío', 'Sangre', 'Fuego'],
+    sprites: ['translocation/dispersal', 'necromancy/vampiric_draining', 'poison/venom_bolt', 'conjuration/orb_of_destruction'],
+  },
+  varek: {
+    forms: ['Apuesta', 'Jugada', 'Carta', 'Ruleta', 'Truco', 'Mano', 'Reparto', 'Corte', 'Finta', 'Asalto', 'Pacto', 'Robo', 'Giro', 'Lance', 'Sangría', 'Envite', 'Farol', 'Duelo', 'Sifón', 'Comodín'],
+    epithets: ['Carmesí', 'del Crupier', 'de Picas', 'Maldito', 'de la Cripta', 'Sangriento', 'del Nocturno', 'de Baskerville', 'Letal', 'Final'],
+    types: ['Corte', 'Arcano', 'Sangre', 'Sagrado', 'Veneno', 'Vacío'],
+    sprites: ['enchantment/spectral_weapon', 'necromancy/vampiric_draining', 'poison/venom_bolt', 'translocation/dispersal'],
+  },
+};
+
+function createGeneratedSkills(character, count) {
+  const naming = GENERATED_SKILL_NAMES[character];
+  const generated = [];
+
+  for (let index = 0; index < count; index++) {
+    const levelBand = Math.min(
+      GENERATED_SKILL_LEVELS.length - 1,
+      Math.floor(index * GENERATED_SKILL_LEVELS.length / count),
+    );
+    const generatedIndex = index + 1;
+    const supportKind = index % 19;
+    const isHeal = supportKind === 0;
+    const isBarrier = supportKind === 1;
+    const isSupport = isHeal || isBarrier;
+    const type = naming.types[index % naming.types.length];
+    const form = naming.forms[index % naming.forms.length];
+    const epithet = naming.epithets[Math.floor(index / naming.forms.length) % naming.epithets.length];
+    const skill = {
+      id: `${character}-generated-${String(generatedIndex).padStart(3, '0')}`,
+      minLevel: GENERATED_SKILL_LEVELS[levelBand],
+      t: isSupport ? 'sup' : character === 'vanitas' && index % 3 === 0 ? 'book' : index % 3 === 0 ? 'fis' : 'mag',
+      n: `${form} ${epithet}`,
+      dt: type,
+      p: isSupport ? 0 : 13 + levelBand * 6 + index % 6 * 2,
+      a: 88 + index % 13,
+      c: 2 + levelBand * 2 + index % 3,
+      sprite: naming.sprites[index % naming.sprites.length],
+      d: '',
+    };
+
+    if (isSupport) {
+      if (isHeal) {
+        skill.heal = 12 + levelBand * 5;
+        skill.d = `Restaura ${skill.heal} PV con una técnica de ${epithet.toLowerCase()}.`;
+      } else {
+        skill.barrier = 15 + levelBand * 6;
+        skill.d = `Crea una barrera de ${skill.barrier} PV con una técnica ${epithet.toLowerCase()}.`;
+      }
+    } else if (index % 7 === 0) {
+      skill.st = 1;
+      skill.stChance = .35;
+      skill.d = `Un golpe ${epithet.toLowerCase()} que puede aturdir al enemigo.`;
+    } else if (index % 7 === 1) {
+      skill.dot = 3 + levelBand * 2;
+      skill.d = `Inflige daño de ${type} persistente con una técnica ${epithet.toLowerCase()}.`;
+    } else if (index % 7 === 2) {
+      skill.cbonus = 5 + levelBand;
+      skill.d = `Un ataque preciso ${epithet.toLowerCase()} con crítico adicional.`;
+    } else {
+      skill.d = `Inflige daño de ${type} con una técnica ${epithet.toLowerCase()}.`;
+    }
+
+    if (skill.t === 'book') skill.book = true;
+    if (character === 'varek' && skill.dt === 'Sangre') skill.ls = 1;
+    generated.push(skill);
+  }
+
+  return generated;
+}
+
+function fillSkillCatalog(skills, character, otherSkillCount, reservedSkills = []) {
+  const missingSkillCount = Math.max(0, 200 - skills.length - otherSkillCount);
+  const existingNames = new Set([...skills, ...reservedSkills].map(skill => skill.n));
+  const generatedSkills = createGeneratedSkills(character, missingSkillCount);
+
+  generatedSkills.forEach((skill, index) => {
+    if (existingNames.has(skill.n)) skill.n = `${skill.n} ${index + 1}`;
+    while (existingNames.has(skill.n)) skill.n += ' II';
+    existingNames.add(skill.n);
+  });
+
+  skills.push(...generatedSkills);
+}
+
+const RARITY_THRESHOLDS = [
+  ['common', 500],
+  ['uncommon', 750],
+  ['rare', 900],
+  ['epic', 970],
+  ['legendary', 995],
+];
+
+function applySkillRarity(skill, index, seed) {
+  const roll = (index * 419 + seed * 137 + 23) % 1000;
+  const rarity = RARITY_THRESHOLDS.find(([, threshold]) => roll < threshold)?.[0] || 'mythic';
+  skill.rarity ||= rarity;
+  skill.scrollWeight ??= SKILL_RARITIES[skill.rarity].scrollWeight;
+}
+
+function decorateSkillCatalog(skills, seed) {
+  skills.forEach((skill, index) => applySkillRarity(skill, index, seed));
+}
+
+function decorateSkillLines(lines, seed) {
+  lines.forEach((line, lineIndex) => line.forEach(skill => applySkillRarity(skill, lineIndex, seed)));
+}
+
+const VANITAS_FORM_SKILL_COUNT = Object.values(VANITAS_FORMS)
+  .reduce((count, form) => count + form.skills.length, 0);
+
+fillSkillCatalog(SOLARIS_SKILLS, 'solaris', SOLARIS_STARTER_SKILLS.length, SOLARIS_STARTER_SKILLS);
+fillSkillCatalog(JEANNE_SKILLS, 'jeanne', JEANNE_STARTER_SKILLS.length, JEANNE_STARTER_SKILLS);
+fillSkillCatalog(VANITAS_SKILLS, 'vanitas', VANITAS_STARTER_SKILLS.length + VANITAS_FORM_SKILL_COUNT, [
+  ...VANITAS_STARTER_SKILLS,
+  ...Object.values(VANITAS_FORMS).flatMap(form => form.skills),
+]);
+fillSkillCatalog(VAREK_SKILLS, 'varek', VAREK_STARTER_SKILLS.length, VAREK_STARTER_SKILLS);
+
+decorateSkillCatalog(SOLARIS_SKILLS, 1);
+decorateSkillCatalog(JEANNE_SKILLS, 2);
+decorateSkillCatalog(VANITAS_SKILLS, 3);
+decorateSkillCatalog(VAREK_SKILLS, 4);
+decorateSkillCatalog(SOLARIS_STARTER_SKILLS, 5);
+decorateSkillCatalog(JEANNE_STARTER_SKILLS, 6);
+decorateSkillCatalog(VANITAS_STARTER_SKILLS, 7);
+decorateSkillCatalog(VAREK_STARTER_SKILLS, 8);
+decorateSkillLines(SOLARIS_SKILL_LINES, 5);
+decorateSkillLines(JEANNE_SKILL_LINES, 6);
+decorateSkillLines(VANITAS_SKILL_LINES, 7);
+decorateSkillLines(VAREK_SKILL_LINES, 8);
+Object.values(VANITAS_FORMS).forEach((form, index) => decorateSkillCatalog(form.skills, 9 + index));

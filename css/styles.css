@@ -1591,6 +1591,26 @@ button small {
   font-size: .38rem;
 }
 
+.skill-rarity-common { --skill-rarity-color: #858b94; }
+.skill-rarity-uncommon { --skill-rarity-color: #388f55; }
+.skill-rarity-rare { --skill-rarity-color: #347dc1; }
+.skill-rarity-epic { --skill-rarity-color: #8751bd; }
+.skill-rarity-legendary { --skill-rarity-color: #c59a2e; }
+.skill-rarity-mythic { --skill-rarity-color: #bd434b; }
+
+#grid button[class*="skill-rarity-"],
+.equipped-skill[class*="skill-rarity-"],
+.grimoire-skill[class*="skill-rarity-"] {
+  border-color: var(--skill-rarity-color);
+  background-color: color-mix(in srgb, var(--skill-rarity-color) 24%, #181c28);
+}
+
+#grid button[class*="skill-rarity-"]:hover:not(:disabled),
+.equipped-skill[class*="skill-rarity-"]:hover,
+.grimoire-skill[class*="skill-rarity-"]:hover {
+  background-color: color-mix(in srgb, var(--skill-rarity-color) 42%, #181c28);
+}
+
 .inventory-subtitle {
   color: #cad7e8;
   font-size: .45rem;

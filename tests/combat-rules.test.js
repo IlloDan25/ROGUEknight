@@ -1,11 +1,29 @@
 import {
+  chooseWeightedItems,
   getEnemyCombatStats,
   getInitialRouteState,
   getParryMessage,
   getVarekStarterDamageMultiplier,
   passesStatusChance,
+  SCROLL_REWARD_WEIGHT,
   tickStatusDuration,
-} from '../js/data/combat-rules.js';
+} from '../js/data/combat-rules.js?test-suite=v3';
+import {
+  JEANNE_SKILLS,
+  JEANNE_SKILL_LINES,
+  JEANNE_STARTER_SKILLS,
+  SKILL_RARITIES,
+  SOLARIS_SKILLS,
+  SOLARIS_SKILL_LINES,
+  SOLARIS_STARTER_SKILLS,
+  VANITAS_FORMS,
+  VANITAS_SKILLS,
+  VANITAS_SKILL_LINES,
+  VANITAS_STARTER_SKILLS,
+  VAREK_SKILLS,
+  VAREK_SKILL_LINES,
+  VAREK_STARTER_SKILLS,
+} from '../js/data/skills.js?test-suite=v3';
 
 const results = document.querySelector('#test-results');
 const tests = [];
@@ -54,6 +72,73 @@ test('new runs clear every character route', () => {
   equal(routes.varekPathRank, 0);
   equal(routes.solarisPath, null);
   equal(routes.jeannePath, null);
+});
+
+test('each character has exactly 200 skills across its complete tree', () => {
+  const vanitasFormSkills = Object.values(VANITAS_FORMS)
+    .reduce((count, form) => count + form.skills.length, 0);
+  equal(SOLARIS_SKILLS.length + SOLARIS_STARTER_SKILLS.length, 200);
+  equal(JEANNE_SKILLS.length + JEANNE_STARTER_SKILLS.length, 200);
+  equal(VANITAS_SKILLS.length + vanitasFormSkills + VANITAS_STARTER_SKILLS.length, 200);
+  equal(VAREK_SKILLS.length + VAREK_STARTER_SKILLS.length, 200);
+});
+
+test('skill names stay unique within every character tree', () => {
+  const vanitasSkills = [
+    ...VANITAS_SKILLS,
+    ...VANITAS_STARTER_SKILLS,
+    ...Object.values(VANITAS_FORMS).flatMap(form => form.skills),
+  ];
+  const trees = [
+    ['Solaris', [...SOLARIS_SKILLS, ...SOLARIS_STARTER_SKILLS]],
+    ['Jeanne', [...JEANNE_SKILLS, ...JEANNE_STARTER_SKILLS]],
+    ['Vanitas', vanitasSkills],
+    ['Varek', [...VAREK_SKILLS, ...VAREK_STARTER_SKILLS]],
+  ];
+  for (const [character, skills] of trees) {
+    if (new Set(skills.map(skill => skill.n)).size !== skills.length) {
+      throw new Error(`${character} has duplicate skill names`);
+    }
+  }
+});
+
+test('every skill has a hidden color rarity and rarity-scaled scroll weight', () => {
+  const skills = [
+    ...SOLARIS_SKILLS,
+    ...JEANNE_SKILLS,
+    ...VANITAS_SKILLS,
+    ...VAREK_SKILLS,
+    ...SOLARIS_STARTER_SKILLS,
+    ...SOLARIS_SKILL_LINES.flat(),
+    ...JEANNE_STARTER_SKILLS,
+    ...JEANNE_SKILL_LINES.flat(),
+    ...VANITAS_STARTER_SKILLS,
+    ...VANITAS_SKILL_LINES.flat(),
+    ...VAREK_STARTER_SKILLS,
+    ...VAREK_SKILL_LINES.flat(),
+    ...Object.values(VANITAS_FORMS).flatMap(form => form.skills),
+  ];
+  const rarityNames = Object.keys(SKILL_RARITIES);
+  for (const skill of skills) {
+    if (!rarityNames.includes(skill.rarity)) throw new Error(`${skill.id || skill.n} has no valid rarity`);
+    if (!Number.isFinite(skill.scrollWeight) || skill.scrollWeight <= 0 || skill.scrollWeight > 1) {
+      throw new Error(`${skill.id || skill.n} has an invalid scroll weight`);
+    }
+  }
+  equal(SKILL_RARITIES.common.color, '#858b94');
+  equal(SKILL_RARITIES.uncommon.color, '#388f55');
+  equal(SKILL_RARITIES.rare.color, '#347dc1');
+  equal(SKILL_RARITIES.epic.color, '#8751bd');
+  equal(SKILL_RARITIES.legendary.color, '#c59a2e');
+  equal(SKILL_RARITIES.mythic.color, '#bd434b');
+});
+
+test('weighted scroll acquisition favors common skills and allows rare ones', () => {
+  const pool = [{ name: 'common', weight: 1 }, { name: 'scroll', weight: SCROLL_REWARD_WEIGHT }];
+  equal(chooseWeightedItems(pool, 1, () => .5)[0].name, 'common');
+  equal(chooseWeightedItems(pool, 1, () => .999)[0].name, 'scroll');
+  equal(SCROLL_REWARD_WEIGHT < 1, true);
+  equal(SKILL_RARITIES.common.scrollWeight > SKILL_RARITIES.mythic.scrollWeight, true);
 });
 
 test('Varek takes about two to three hits across late-game milestones', () => {

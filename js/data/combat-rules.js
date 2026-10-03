@@ -50,3 +50,24 @@ export function getParryMessage(outcome, damageResult, damageMessage, reflectedD
   const prefix = damageResult.damage === 0 ? '¡Daño bloqueado!' : '¡Golpe recibido!';
   return `${prefix} ${damageMessage}`;
 }
+
+export function chooseWeightedItems(items, count, rollRandom = Math.random) {
+  const pool = [...items];
+  const chosen = [];
+
+  while (pool.length && chosen.length < count) {
+    const totalWeight = pool.reduce((total, item) => total + (item.weight ?? 1), 0);
+    let selection = rollRandom() * totalWeight;
+    let selectedIndex = pool.findIndex(item => {
+      selection -= item.weight ?? 1;
+      return selection < 0;
+    });
+    if (selectedIndex < 0) selectedIndex = pool.length - 1;
+    chosen.push(pool[selectedIndex]);
+    pool.splice(selectedIndex, 1);
+  }
+
+  return chosen;
+}
+
+export const SCROLL_REWARD_WEIGHT = .08;

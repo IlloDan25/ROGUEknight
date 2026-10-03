@@ -15,13 +15,16 @@ import {
   VAREK_SKILLS,
   VAREK_SKILL_LINES,
   VAREK_STARTER_SKILLS,
+  SKILL_RARITIES,
 } from './data/skills.js';
 import {
+  chooseWeightedItems,
   getEnemyCombatStats,
   getInitialRouteState,
   getParryMessage,
   getVarekStarterDamageMultiplier,
   passesStatusChance,
+  SCROLL_REWARD_WEIGHT,
   tickStatusDuration,
 } from './data/combat-rules.js';
 import {
@@ -395,6 +398,7 @@ export const Game = (() => {
     {
       name: 'Pergamino Mágico',
       description: 'Contiene una habilidad aleatoria de tu personaje.',
+      weight: SCROLL_REWARD_WEIGHT,
       apply: () => bag.scrolls++,
     },
     { name: 'Espada afilada', description: '+5 de ataque.', apply: () => bonuses.attack += 5 },
@@ -1166,15 +1170,23 @@ export const Game = (() => {
     }
     await waitForDelay(milliseconds);
   }
+
+  function applySkillRarity(element, skill) {
+    if (skill.rarity && Object.hasOwn(SKILL_RARITIES, skill.rarity)) {
+      element.classList.add(`skill-rarity-${skill.rarity}`);
+    }
+  }
+
   function renderActionMenu(items, menuVariant = '') {
     const grid = getElementById('grid');
     grid.classList.toggle('grimoire-menu', menuVariant === 'grimoire');
-    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover }) => {
+    grid.replaceChildren(...items.map(({ t: label, s: subtitle, d: isDisabled, k: isBack, f: action, h: onHover, rarity }) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.innerHTML = `${label}${subtitle ? `<small>${subtitle}</small>` : ''}`;
       button.disabled = Boolean(isDisabled);
       if (isBack) button.className = 'back';
+      if (rarity && Object.hasOwn(SKILL_RARITIES, rarity)) button.classList.add(`skill-rarity-${rarity}`);
       button.onclick = action;
       if (onHover) button.onmouseenter = button.onfocus = onHover;
       return button;
@@ -1390,6 +1402,7 @@ export const Game = (() => {
       return {
         t: `<span class="ic">${createSkillIconMarkup(skill)}</span>${skill.n}`,
         s: rewriteBlocked ? `${skill.dt} · ${companion ? 'Aliado activo' : 'Jefe inmune'}` : `${skill.dt} · MP ${manaCost}`,
+        rarity: skill.rarity,
         d: mp < manaCost || (skill.allManaCost && mp === 0) || rewriteBlocked,
         f: () => castSkill(skill),
         h: () => {
@@ -1525,6 +1538,7 @@ export const Game = (() => {
       const slotButton = document.createElement('button');
       slotButton.type = 'button';
       slotButton.className = `equipped-skill${slotIndex === inventorySkillSlot ? ' is-selected' : ''}`;
+      applySkillRarity(slotButton, skill);
       slotButton.setAttribute('aria-pressed', String(slotIndex === inventorySkillSlot));
       slotButton.innerHTML = `<span class="equipped-skill-slot">${slotIndex + 1}</span><span class="ic">${createSkillIconMarkup(skill)}</span><span class="equipped-skill-name"></span><small>MP ${skill.c}</small>`;
       slotButton.querySelector('.equipped-skill-name').textContent = skill.n;
@@ -1550,6 +1564,7 @@ export const Game = (() => {
       const skillButton = document.createElement('button');
       skillButton.type = 'button';
       skillButton.className = 'grimoire-skill';
+      applySkillRarity(skillButton, skill);
       skillButton.title = skill.d;
       skillButton.innerHTML = `<span class="ic">${createSkillIconMarkup(skill)}</span><span class="grimoire-skill-name"></span><small>MP ${skill.c}</small>`;
       skillButton.querySelector('.grimoire-skill-name').textContent = skill.n;
@@ -2289,10 +2304,7 @@ export const Game = (() => {
     if (lootDrop) await typeMessage(`${lootDrop.name}: ${lootDrop.description}`);
 
     setCombatMessage('¡Elige una recompensa!');
-    const rewards = REWARDS
-      .filter(isAvailableToCurrentCharacter)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    const rewards = chooseWeightedItems(REWARDS.filter(isAvailableToCurrentCharacter), 3);
     await new Promise(resolve => {
       renderActionMenu(rewards.map(({ name, description, apply }) => ({
         t: name,
