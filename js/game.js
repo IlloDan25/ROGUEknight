@@ -502,7 +502,7 @@ export const Game = (() => {
   };
 
   const SAVE_DATA_FORMAT = 'rogueknight-save';
-  const SAVE_DATA_VERSION = 3;
+  const SAVE_DATA_VERSION = 4;
   const SAVE_BAG_KEYS = ['pot', 'sup', 'eter', 'fen', 'scrolls', 'smoke', 'trap', 'bladeOil', 'bookInk', 'bloodLetter'];
   const SAVE_BONUS_KEYS = ['hp', 'attack', 'def', 'vamp', 'crit', 'mp', 'bookPower'];
   const SAVE_PLAYER_STATUS_IDS = ['frenzy', 'smoke', 'barrier', 'witch-barrier', 'invulnerable', 'crit-next', 'roulette-attack', 'gambler-luck'];
@@ -643,7 +643,7 @@ export const Game = (() => {
 
   function loadSaveData(saveData) {
     requireSaveRecord(saveData, 'El archivo');
-    if (saveData.format !== SAVE_DATA_FORMAT || ![1, 2, SAVE_DATA_VERSION].includes(saveData.version)) {
+    if (saveData.format !== SAVE_DATA_FORMAT || ![1, 2, 3, SAVE_DATA_VERSION].includes(saveData.version)) {
       throw new Error('El archivo no es una partida compatible de RogueKnight.');
     }
 
@@ -680,7 +680,19 @@ export const Game = (() => {
       .find(candidate => candidate.n === savedEnemy.n);
     if (!monster || typeof savedEnemy.b !== 'boolean') throw new Error('El enemigo guardado no existe.');
     const monsterClass = MONSTER_CLASSES[monster.n] || 'Bestia';
-    const maximumEnemyHealth = requireSaveNumber(savedEnemy.mx, 'PV máximos del enemigo', 1, 1_000_000_000_000);
+    const savedMaximumEnemyHealth = requireSaveNumber(savedEnemy.mx, 'PV máximos del enemigo', 1, 1_000_000_000_000);
+    const savedEnemyHealth = requireSaveNumber(savedEnemy.hp, 'PV del enemigo', 1, savedMaximumEnemyHealth);
+    const savedEnemyAttack = requireSaveNumber(savedEnemy.attack, 'Ataque del enemigo', .1, 1_000_000_000_000);
+    const currentEnemyStats = getEnemyCombatStats(savedLevel, savedEnemy.b);
+    const maximumEnemyHealth = saveData.version < SAVE_DATA_VERSION
+      ? currentEnemyStats.mx
+      : savedMaximumEnemyHealth;
+    const restoredEnemyHealth = saveData.version < SAVE_DATA_VERSION
+      ? Math.max(1, Math.round(savedEnemyHealth / savedMaximumEnemyHealth * maximumEnemyHealth))
+      : savedEnemyHealth;
+    const restoredEnemyAttack = saveData.version < SAVE_DATA_VERSION
+      ? currentEnemyStats.attack
+      : savedEnemyAttack;
     const restoredEnemy = {
       n: monster.n,
       e: monster.e,
@@ -689,8 +701,8 @@ export const Game = (() => {
       cl: monsterClass,
       affinities: getMonsterAffinities(monster.n, monsterClass),
       mx: maximumEnemyHealth,
-      hp: requireSaveNumber(savedEnemy.hp, 'PV del enemigo', 1, maximumEnemyHealth),
-      attack: requireSaveNumber(savedEnemy.attack, 'Ataque del enemigo', .1, 1_000_000_000_000),
+      hp: restoredEnemyHealth,
+      attack: restoredEnemyAttack,
       statuses: restoreSaveStatuses(savedEnemy.statuses, SAVE_ENEMY_STATUS_IDS, 'Los estados del enemigo'),
     };
 
@@ -890,7 +902,7 @@ export const Game = (() => {
 
   function getSkillProgressionMultiplier(skill) {
     if (currentCharacter !== 'varek' || !skill.starter) return 1;
-    return Math.pow(1.12, Math.max(0, level - 11));
+    return Math.pow(1.06, Math.max(0, getSkillTier() - 1));
   }
 
   function getDefense() {
@@ -1167,6 +1179,23 @@ export const Game = (() => {
     getElementById('return-menu').disabled = true;
   };
 
+  function getEnemyCombatStats(enemyLevel, isBoss) {
+    const growthTier = Math.max(0, Math.floor(enemyLevel / 10) - 1);
+    const healthGrowth = Math.pow(1.12, growthTier);
+    const attackGrowth = Math.pow(1.05, growthTier);
+    const baseHealth = enemyLevel <= 10
+      ? 8 + 1.5 * enemyLevel
+      : (15 + 7.5 * enemyLevel) * healthGrowth;
+    const baseAttack = enemyLevel <= 10
+      ? .5 + .15 * enemyLevel
+      : (4 + .8 * enemyLevel) * attackGrowth;
+
+    return {
+      mx: Math.round(baseHealth * (isBoss ? 2.5 : 1)),
+      attack: baseAttack * (isBoss ? 1.4 : 1),
+    };
+  }
+
   function spawnEnemy() {
     const zoneIndex = getZoneIndex();
     const isBoss = level % 10 === 0;
@@ -1175,9 +1204,7 @@ export const Game = (() => {
     const monster = encounterPool[Math.floor(Math.random() * encounterPool.length)];
     const { n: monsterName, e: monsterEmoji } = monster;
 
-    const enemyGrowth = level <= 10 ? 0 : Math.pow(1.12, level - 11);
-    const baseHealth = level <= 10 ? 8 + 1.5 * level : (15 + 7.5 * level) * enemyGrowth;
-    const baseAttack = level <= 10 ? .5 + .15 * level : (4 + .8 * level) * enemyGrowth;
+    const combatStats = getEnemyCombatStats(level, isBoss);
     const monsterClass = MONSTER_CLASSES[monsterName] || 'Bestia';
 
     enemy = {
@@ -1187,8 +1214,8 @@ export const Game = (() => {
       b: isBoss,
       cl: monsterClass,
       affinities: getMonsterAffinities(monsterName, monsterClass),
-      mx: Math.round(baseHealth * (isBoss ? 2.5 : 1)),
-      attack: baseAttack * (isBoss ? 1.4 : 1),
+      mx: combatStats.mx,
+      attack: combatStats.attack,
       statuses: [],
     };
     enemy.hp = enemy.mx;
@@ -1759,12 +1786,16 @@ export const Game = (() => {
     }
 
     if (skill.sleep) {
-      if (Math.random() * 100 > skill.a) {
+      const attackMissed = Math.random() * 100 > skill.a;
+      const sleepTriggered = !attackMissed && Math.random() < (skill.sleepChance ?? 1);
+      if (attackMissed) {
         await typeMessage('¡Pero falló!');
-      } else {
+      } else if (sleepTriggered) {
         addStatusEffect(enemy.statuses, { id: 'sleep', label: 'Dormido', turns: skill.sleep });
         renderInterface();
         await typeMessage(`${enemy.n} cae dormido durante ${skill.sleep} turnos.`);
+      } else {
+        await typeMessage(`${enemy.n} resiste el sueño.`);
       }
       await enemyTurn();
       return;

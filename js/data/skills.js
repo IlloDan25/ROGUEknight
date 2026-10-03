@@ -1202,8 +1202,8 @@ export const VAREK_STARTER_SKILLS = [
   },
   {
     id: 'varek-starter-rift', starter: true, t: 'sup', n: 'Grieta Oscura', dt: 'Vacío',
-    p: 0, a: 100, c: 6, sleep: 3, sprite: 'translocation/dispersal',
-    d: 'Sumerge al enemigo en un sueño profundo durante 3 turnos.',
+    p: 0, a: 100, c: 6, sleep: 3, sleepChance: .4, sprite: 'translocation/dispersal',
+    d: 'Tiene un 40% de probabilidad de dormir al enemigo durante 3 turnos.',
   },
 ].map((skill, line) => ({ ...skill, line, tier: 0 }));
 
@@ -1259,7 +1259,7 @@ export const VAREK_SKILL_LINES = VAREK_STARTER_SKILLS.map((starter, line) =>
       tier,
       c: 6 + Math.floor(tier / 2),
       sleep: 3 + Math.floor(tier / 3),
-      d: `Duerme al enemigo durante ${3 + Math.floor(tier / 3)} turnos. Mejora cada 10 niveles.`,
+      d: `Tiene un 40% de probabilidad de dormir al enemigo durante ${3 + Math.floor(tier / 3)} turnos. Mejora cada 10 niveles.`,
     };
   }),
 );
